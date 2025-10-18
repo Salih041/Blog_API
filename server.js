@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 import authRoutes from "./routes/auth.js"
+import postRoutes from "./routes/posts.js"
 
 dotenv.config();
 const app = express();
@@ -22,8 +23,6 @@ mongoose.connect(dburl)
         process.exit(1);
     })
 
-
-app.get("/",(req,res)=>{
-    res.send("MErhaba");
-})
+app.use("/api/auth",authRoutes);
+app.use("/api/posts",postRoutes)
 
