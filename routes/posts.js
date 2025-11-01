@@ -11,7 +11,7 @@ router.get("/",async (req,res)=>{   // get all posts
         const limit = parseInt(req.query.limit) || 20;
         const skipIndex = (page-1) * limit;
 
-        const posts = await Post.find().populate("author","username").sort({createdAt : -1}).skip(skipIndex).limit(limit)
+        const posts = await Post.find().populate("author","username").select("-comments -likes").sort({createdAt : -1}).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments({});
 
         res.status(200).json({
@@ -44,7 +44,7 @@ router.get("/search" , async (req,res)=>{  //search post
                 {content : { $regex : searchTerm, $options : 'i'}},
                 {author : {$in : authorIds}}
             ]}
-        const posts = await Post.find(queryFilter).populate("author","username").sort({createdAt:-1}).skip(skipIndex).limit(limit)
+        const posts = await Post.find(queryFilter).populate("author","username").select("-comments -likes").sort({createdAt:-1}).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments(queryFilter);
 
         res.status(200).json({
@@ -138,6 +138,7 @@ router.post("/:id/comment", authMiddleware, async(req,res)=>{
         }
 
         post.comments.push(comment);
+        post.commentCount +=1;
         await post.save();
 
         const addedComment = post.comments[post.comments.length-1];
@@ -159,6 +160,7 @@ router.delete("/:id/comment/:commentid", authMiddleware, async (req,res)=>{
         if(!(comment.author.toString() === req.user.userID || post.author.toString() === req.user.userID)) return res.status(403).json({message : "invalid auth"});
 
         comment.deleteOne();
+        post.commentCount -= 1;
 
         const savedpost = await post.save()
 
@@ -189,6 +191,36 @@ router.put("/:id/comment/:commentid", authMiddleware , async (req,res)=>{
     }
 })
 
+router.put("/:id/comment/:commentid/like", authMiddleware, async (req,res)=>{
+    try{
+        const post = await Post.findById(req.params.id);
+        if(!post) return res.status(404).json({message : "Post not found"});
+
+        const comment = post.comments.id(req.params.commentid);
+        if(!comment) return res.status(404).json({message: "Comment not found"});
+
+        const userId = req.user.userID;
+        const hasLiked = comment.likes.some(likeId => likeId.equals(userId));
+        let message = ""
+        if(hasLiked){
+            comment.likes.pull(userId);
+            comment.likeCount -=1;
+            message = "comment unliked"
+        }
+        else{
+            comment.likes.push(userId);
+            comment.likeCount += 1;
+            message = "comment liked";
+        }
+
+        await post.save();
+
+        res.status(200).json({message:message, likeCount : comment.likeCount, likes:comment.likes})
+    }catch(error){
+        res.status(500).json({error: error.message})
+    }
+})
+
 router.put("/:id/like", authMiddleware, async (req,res)=>{
     try{
         const post = await Post.findById(req.params.id);
@@ -200,16 +232,18 @@ router.put("/:id/like", authMiddleware, async (req,res)=>{
         let message="";
         if(hasLiked){ // unLike
             post.likes.pull(userId);
+            post.likeCount -= 1;
             message = "Unliked";
         }
         else{
             post.likes.push(userId);
+            post.likeCount += 1;
             message = "Liked"
         }
 
         await post.save();
 
-        res.status(200).json({message:message,likesCount:post.likes.length,likes:post.likes})
+        res.status(200).json({message:message,likeCount:post.likeCount,likes:post.likes})
     }catch(error){
         res.status(500).json({error : error.message});
     }

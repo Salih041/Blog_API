@@ -7,7 +7,9 @@ const commentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref : 'User',
         required : true
-    }
+    },
+    likes : [{type:mongoose.Schema.Types.ObjectId,ref : 'User'}],
+    likeCount : {type:Number, default:0}
 },{timestamps:true})
 
 
@@ -20,7 +22,10 @@ const postSchema = new mongoose.Schema({
         required : true
     },
     comments : [commentSchema],
-    likes : [{type: mongoose.Schema.Types.ObjectId,ref : 'User',}]
+    commentCount : {type:Number, default:0},
+    likes : [{type: mongoose.Schema.Types.ObjectId,ref : 'User',}],
+    likeCount : {type:Number, default:0}
 },{timestamps:true})
+
 
 export default mongoose.model('Post',postSchema);
