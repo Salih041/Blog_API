@@ -91,12 +91,12 @@ router.post("/",authMiddleware, async (req,res)=>{
 router.delete("/:id",authMiddleware, async(req,res)=>{
     try{
         const post = await Post.findById(req.params.id);
-        if(!post) return res.status(404).json({message : "Post bulunamadı"});
+        if(!post) return res.status(404).json({message : "Post not found"});
 
-        if(post.author.toString() !== req.user.userID) return res.status(403).json({message : "Yetki yok"});
+        if(post.author.toString() !== req.user.userID) return res.status(403).json({message : "invalid auth"});
 
         await post.deleteOne();
-        res.status(200).json({message : "Post silindi"});
+        res.status(200).json({message : "Post deleted"});
 
     }catch(error){
         res.status(500).json({error : error.message});
