@@ -5,75 +5,79 @@ import authMiddleware from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.get("/",async (req,res)=>{   // get all posts
-    try{
+router.get("/", async (req, res) => {   // get all posts
+    try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const skipIndex = (page-1) * limit;
+        const skipIndex = (page - 1) * limit;
 
-        const posts = await Post.find().populate("author","username").select("-comments -likes").sort({createdAt : -1}).skip(skipIndex).limit(limit)
+        const posts = await Post.find().populate("author", "username").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments({});
 
         res.status(200).json({
-            data:posts,
-            pagination:{
-                currentPage:page, 
-                limit : limit, 
-                totalResults:totalResults,
-                totalPages : Math.ceil(totalResults/limit)
-        }})
-    }catch(error){
-        res.status(500).json({error : error.message});
+            data: posts,
+            pagination: {
+                currentPage: page,
+                limit: limit,
+                totalResults: totalResults,
+                totalPages: Math.ceil(totalResults / limit)
+            }
+        })
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 })
 
-router.get("/search" , async (req,res)=>{  //search post
-    try{
+router.get("/search", async (req, res) => {  //search post
+    try {
         const searchTerm = req.query.q;
-        if(!searchTerm) return res.status(400).json({message : "term required"});
+        if (!searchTerm) return res.status(400).json({ message: "term required" });
 
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const skipIndex = (page-1) * limit;
+        const skipIndex = (page - 1) * limit;
 
-        const users = await User.find({username:{$regex : searchTerm, $options : 'i'}}).select("_id");
+        const users = await User.find({ username: { $regex: searchTerm, $options: 'i' } }).select("_id");
         const authorIds = users.map(user => user._id);
 
-        const queryFilter = {$or: [
-                {title : { $regex : searchTerm, $options : 'i'}},
-                {content : { $regex : searchTerm, $options : 'i'}},
-                {author : {$in : authorIds}}
-            ]}
-        const posts = await Post.find(queryFilter).populate("author","username").select("-comments -likes").sort({createdAt:-1}).skip(skipIndex).limit(limit)
+        const queryFilter = {
+            $or: [
+                { title: { $regex: searchTerm, $options: 'i' } },
+                { content: { $regex: searchTerm, $options: 'i' } },
+                { author: { $in: authorIds } }
+            ]
+        }
+        const posts = await Post.find(queryFilter).populate("author", "username").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments(queryFilter);
 
         res.status(200).json({
             data: posts,
-            pagination:{
-                currentPage:page, 
-                limit : limit, 
-                totalResults:totalResults,
-                totalPages : Math.ceil(totalResults/limit)
-            }});
-    }catch(error){
-        res.status(500).json({error: error.message})
+            pagination: {
+                currentPage: page,
+                limit: limit,
+                totalResults: totalResults,
+                totalPages: Math.ceil(totalResults / limit)
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message })
     }
 })
 
-router.get("/:id", async (req,res)=>{  // get one post by id
-    try{
-        const post = await Post.findById(req.params.id).populate("author","username").populate({path:"comments.author",select:"username"});
-        if(!post) return res.status(404).json({message : "Post Not found"});
+router.get("/:id", async (req, res) => {  // get one post by id
+    try {
+        const post = await Post.findById(req.params.id).populate("author", "username").populate({ path: "comments.author", select: "username" });
+        if (!post) return res.status(404).json({ message: "Post Not found" });
 
         res.status(200).json(post);
-    }catch(error){
-        res.status(500).json({error:error.message})
+    } catch (error) {
+        res.status(500).json({ error: error.message })
     }
 })
 
-router.post("/",authMiddleware, async (req,res)=>{
-    try{
-        const {title,content} = req.body;
+router.post("/", authMiddleware, async (req, res) => {
+    try {
+        const { title, content } = req.body;
 
         const newPost = new Post({
             title,
@@ -82,82 +86,86 @@ router.post("/",authMiddleware, async (req,res)=>{
         })
 
         const savedPost = await newPost.save();
-        res.status(201).json({savedPost});
-    }catch(error){
-        res.status(500).json({error : error.message})
+        res.status(201).json({ savedPost });
+    } catch (error) {
+        res.status(500).json({ error: error.message })
     }
 })
 
-router.delete("/:id",authMiddleware, async(req,res)=>{
-    try{
+router.delete("/:id", authMiddleware, async (req, res) => {
+    try {
         const post = await Post.findById(req.params.id);
-        if(!post) return res.status(404).json({message : "Post not found"});
+        if (!post) return res.status(404).json({ message: "Post not found" });
 
-        if(post.author.toString() !== req.user.userID) return res.status(403).json({message : "invalid auth"});
+        if (post.author.toString() !== req.user.userID) return res.status(403).json({ message: "invalid auth" });
 
         await post.deleteOne();
-        res.status(200).json({message : "Post deleted"});
+        res.status(200).json({ message: "Post deleted" });
 
-    }catch(error){
-        res.status(500).json({error : error.message});
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 })
 
-router.put("/:id", authMiddleware, async(req,res)=>{
-    try{
+router.put("/:id", authMiddleware, async (req, res) => {
+    try {
         const post = await Post.findById(req.params.id);
-        if(!post) return res.status(404).json({message : "Post Not Found"});
+        if (!post) return res.status(404).json({ message: "Post Not Found" });
 
-        if(post.author.toString() !== req.user.userID) return res.status(403).json({message : "invalid auth"});
+        if (post.author.toString() !== req.user.userID) return res.status(403).json({ message: "invalid auth" });
 
-        const {title,content} = req.body;
-        if(title) post.title = title;
-        if(content)  post.content=content;
+        const { title, content } = req.body;
+        if (title) post.title = title;
+        if (content) post.content = content;
 
         const updatedPost = await post.save();
 
         res.status(200).json(updatedPost)
 
-    }catch(error){
-        res.status(500).json({error: error.message});
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 })
 
-router.post("/:id/comment", authMiddleware, async(req,res)=>{
-    try{
-        const {text} = req.body;
+router.post("/:id/comment", authMiddleware, async (req, res) => {
+    try {
+        const { text } = req.body;
 
-        if(!text) return res.status(400).json({message : "text required"});
+        if (!text) return res.status(400).json({ message: "text required" });
 
         const post = await Post.findById(req.params.id);
-        if(!post) return res.status(404).json({message : "Post Not FOund"});
+        if (!post) return res.status(404).json({ message: "Post Not FOund" });
 
         const comment = {
-            text : text,
-            author : req.user.userID
+            text: text,
+            author: req.user.userID
         }
 
         post.comments.push(comment);
-        post.commentCount +=1;
+        post.commentCount += 1;
         await post.save();
 
-        const addedComment = post.comments[post.comments.length-1];
+        await post.populate({
+            path: 'comments.author',
+            select: 'username'
+        });
+
+        const addedComment = post.comments[post.comments.length - 1];
         res.status(200).json(addedComment);
-    }catch(error)
-    {
-        res.status(500).json({error : error.message})
+    } catch (error) {
+        res.status(500).json({ error: error.message })
     }
 })
 
-router.delete("/:id/comment/:commentid", authMiddleware, async (req,res)=>{
-    try{
+router.delete("/:id/comment/:commentid", authMiddleware, async (req, res) => {
+    try {
         const post = await Post.findById(req.params.id);
-        if(!post) return res.status(404).json({message : "Post Not FOund"});
+        if (!post) return res.status(404).json({ message: "Post Not FOund" });
 
         const comment = post.comments.id(req.params.commentid);
-        if(!comment) return res.status(404).json({message : "Comment not found"});
+        if (!comment) return res.status(404).json({ message: "Comment not found" });
 
-        if(!(comment.author.toString() === req.user.userID || post.author.toString() === req.user.userID)) return res.status(403).json({message : "invalid auth"});
+        if (!(comment.author.toString() === req.user.userID || post.author.toString() === req.user.userID)) return res.status(403).json({ message: "invalid auth" });
 
         comment.deleteOne();
         post.commentCount -= 1;
@@ -166,48 +174,48 @@ router.delete("/:id/comment/:commentid", authMiddleware, async (req,res)=>{
 
         res.status(200).json(savedpost);
 
-    }catch(error){
-        res.status(500).json({error:error.message});
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 })
 
-router.put("/:id/comment/:commentid", authMiddleware , async (req,res)=>{
-    try{
+router.put("/:id/comment/:commentid", authMiddleware, async (req, res) => {
+    try {
         const post = await Post.findById(req.params.id);
-        if(!post) return res.status(404).json({message : "Post Not FOund"});
+        if (!post) return res.status(404).json({ message: "Post Not FOund" });
 
         const comment = post.comments.id(req.params.commentid);
-        if(!comment) return res.status(404).json({message : "Comment not found"});
+        if (!comment) return res.status(404).json({ message: "Comment not found" });
 
-        if(!(comment.author.toString() === req.user.userID)) return res.status(403).json({message : "invalid auth"});
+        if (!(comment.author.toString() === req.user.userID)) return res.status(403).json({ message: "invalid auth" });
 
-        const {text} = req.body;
+        const { text } = req.body;
         comment.text = text;
 
         const updatedPost = await post.save();
         res.status(200).json(updatedPost);
-    }catch(error){
-        res.status(500).json({error : error.message})
+    } catch (error) {
+        res.status(500).json({ error: error.message })
     }
 })
 
-router.put("/:id/comment/:commentid/like", authMiddleware, async (req,res)=>{
-    try{
+router.put("/:id/comment/:commentid/like", authMiddleware, async (req, res) => {
+    try {
         const post = await Post.findById(req.params.id);
-        if(!post) return res.status(404).json({message : "Post not found"});
+        if (!post) return res.status(404).json({ message: "Post not found" });
 
         const comment = post.comments.id(req.params.commentid);
-        if(!comment) return res.status(404).json({message: "Comment not found"});
+        if (!comment) return res.status(404).json({ message: "Comment not found" });
 
         const userId = req.user.userID;
         const hasLiked = comment.likes.some(likeId => likeId.equals(userId));
         let message = ""
-        if(hasLiked){
+        if (hasLiked) {
             comment.likes.pull(userId);
-            comment.likeCount -=1;
+            comment.likeCount -= 1;
             message = "comment unliked"
         }
-        else{
+        else {
             comment.likes.push(userId);
             comment.likeCount += 1;
             message = "comment liked";
@@ -215,27 +223,27 @@ router.put("/:id/comment/:commentid/like", authMiddleware, async (req,res)=>{
 
         await post.save();
 
-        res.status(200).json({message:message, likeCount : comment.likeCount, likes:comment.likes})
-    }catch(error){
-        res.status(500).json({error: error.message})
+        res.status(200).json({ message: message, likeCount: comment.likeCount, likes: comment.likes })
+    } catch (error) {
+        res.status(500).json({ error: error.message })
     }
 })
 
-router.put("/:id/like", authMiddleware, async (req,res)=>{
-    try{
+router.put("/:id/like", authMiddleware, async (req, res) => {
+    try {
         const post = await Post.findById(req.params.id);
-        if(!post) return res.status(404).json({message : "Post Not Found"});
+        if (!post) return res.status(404).json({ message: "Post Not Found" });
 
         const userId = req.user.userID;
 
         const hasLiked = post.likes.some(likeId => likeId.equals(userId));
-        let message="";
-        if(hasLiked){ // unLike
+        let message = "";
+        if (hasLiked) { // unLike
             post.likes.pull(userId);
             post.likeCount -= 1;
             message = "Unliked";
         }
-        else{
+        else {
             post.likes.push(userId);
             post.likeCount += 1;
             message = "Liked"
@@ -243,9 +251,9 @@ router.put("/:id/like", authMiddleware, async (req,res)=>{
 
         await post.save();
 
-        res.status(200).json({message:message,likeCount:post.likeCount,likes:post.likes})
-    }catch(error){
-        res.status(500).json({error : error.message});
+        res.status(200).json({ message: message, likeCount: post.likeCount, likes: post.likes })
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 })
 
