@@ -65,6 +65,16 @@ router.get("/search", async (req, res) => {  //search post
     }
 })
 
+router.get("/user/:userId", async (req,res)=>{
+    try{
+        const posts = await Post.find({author : req.params.userId}).populate("author","username").sort({createdAt:-1});
+        res.status(200).json(posts)
+    }catch(error)
+    {
+        res.status(500).json({error: error.message})
+    }
+})
+
 router.get("/:id", async (req, res) => {  // get one post by id
     try {
         const post = await Post.findById(req.params.id).populate("author", "username").populate({ path: "comments.author", select: "username" });
