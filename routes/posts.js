@@ -37,14 +37,18 @@ router.get("/search", async (req, res) => {  //search post
         const limit = parseInt(req.query.limit) || 20;
         const skipIndex = (page - 1) * limit;
 
-        const users = await User.find({ username: { $regex: searchTerm, $options: 'i' } }).select("_id");
+        const safeSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        const users = await User.find({ username: { $regex: safeSearchTerm, $options: 'i' } }).select("_id");
         const authorIds = users.map(user => user._id);
 
+        const regex = new RegExp(safeSearchTerm, 'i');
+        
         const queryFilter = {
             $or: [
-                { title: { $regex: searchTerm, $options: 'i' } },
-                { content: { $regex: searchTerm, $options: 'i' } },
-                { tags: { $regex: searchTerm, $options: 'i'}},
+                { title: { $regex: safeSearchTerm, $options: 'i' } },
+                { content: { $regex: safeSearchTerm, $options: 'i' } },
+                { tags: { $in : [regex]}},
                 { author: { $in: authorIds } }
             ]
         }
