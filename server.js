@@ -34,10 +34,13 @@ const dburl = process.env.MONGO_URL;
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15min
-    max: 100,
+    max: 500,
     standardHeaders: true,
     legacyHeaders: false,
-    message: "Too many request."
+    message: {
+        status: 429,
+        message: "Too many requests. Please try again in 15 minutes."
+    }
 });
 app.use(limiter);
 app.use(helmet());
