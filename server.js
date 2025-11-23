@@ -20,7 +20,7 @@ const limiter = rateLimit({
     legacyHeaders: false,
     message: "Too many request."
 });
-app.use(limiter())
+app.use(limiter);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());

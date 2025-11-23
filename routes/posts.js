@@ -2,6 +2,7 @@ import express from "express";
 import Post from "../models/Post.js";
 import User from "../models/User.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
+import upload from "../middlewares/uploadMiddleware.js";
 
 const router = express.Router();
 
@@ -273,5 +274,16 @@ router.put("/:id/like", authMiddleware, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 })
+
+router.post("/upload-image", authMiddleware, upload.single('image'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: "Image couldnt be upload." });
+        }
+        res.status(200).json({ url: req.file.path });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 export default router;
