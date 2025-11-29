@@ -12,6 +12,9 @@ const userSchema = new mongoose.Schema({
     verificationToken: String,
     verificationTokenExpires: Date,
 
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
+
     profilePicture : {type: String, default:""},
     bio : {type: String, default:"", maxLength:140},
     createdAt: { type: Date, default: Date.now }

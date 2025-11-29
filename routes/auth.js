@@ -4,8 +4,14 @@ import jwt from "jsonwebtoken";
 import { body, validationResult } from "express-validator";
 import User from "../models/User.js";
 import sendEmail from "../utils/email.js";
+import rateLimit from "express-rate-limit";
 
 const router = express.Router();
+const forgotPasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 3, 
+    message: { message: "Too many requests. Please try again after 15 minutes." }
+});
 
 router.post("/register", [
     body("username").trim().notEmpty().withMessage("Username is required").isLength({ min: 3, max: 20 }).withMessage("Username must be between 3-20 characters"),
@@ -54,7 +60,7 @@ router.post("/register", [
             try {
                 await sendEmail({
                     email: newUser.email,
-                    subject: "Your Selamy Verification Code:" + verificationCode,
+                    subject: "Your Selamy Verification Code:",
                     html: message
                 });
             } catch (emailError) {
@@ -130,6 +136,79 @@ router.post("/login",
             res.status(200).json({ token, userID: user._id });
         } catch (error) {
             res.status(500).json({ error: error.message });
+        }
+    })
+
+router.post("/forgot-password",forgotPasswordLimiter, async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(200).json({
+                message: "The reset code has been sent to your email address.",
+                email: email
+            });
+        }
+        const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+        user.resetPasswordToken = resetCode;
+        user.resetPasswordExpires = Date.now() + 1 * 60 * 60 * 1000; // 1 Saat geçerli
+        await user.save();
+
+        const message = `
+            <div style="font-family: Arial; text-align: center; padding: 20px;">
+                <h2>Password Reset Request</h2>
+                <p>Use the code below to reset your password:</p>
+                <h1 style="color: #e74c3c; letter-spacing: 5px;">${resetCode}</h1>
+                <p>This code is valid for 1 hour.</p>
+                <p>If you did not make this request, ignore this email.</p>
+            </div>
+        `;
+
+        try {
+            await sendEmail({
+                email: user.email,
+                subject: "Password Reset Code",
+                html: message
+            })
+            res.status(200).json({ message: "The reset code has been sent to your email address.", email: user.email });
+        } catch (emailError) {
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpires = undefined;
+            await user.save();
+            return res.status(500).json({ message: "Mail couldnt be sent." });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message })
+    }
+})
+
+router.post("/reset-password", [
+    body("newPassword").isLength({ min: 6, max: 72 }).withMessage("Password must be between 6-72 characters").matches(/\d/).withMessage("Password must contain at least one number").matches(/[a-z]/).withMessage("Password must contain at least one letter").matches(/[A-Z]/).withMessage("Password must contain at least one capital letter")
+],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ message: errors.array()[0].msg });
+        }
+        try {
+            const { email, code, newPassword } = req.body;
+            const user = await User.findOne({
+                email: email,
+                resetPasswordToken: code,
+                resetPasswordExpires: { $gt: Date.now() }
+            });
+            if (!user) {
+                return res.status(400).json({ message: "Invalid or expired code" });
+            }
+            const hashedPassword = await bcrypt.hash(newPassword, 12);
+            user.password = hashedPassword;
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpires = undefined;
+            await user.save();
+            res.status(200).json({ message: "Your password has been changed successfully! You can log in." });
+        } catch (error) {
+            res.status(500).json({ error: error.message })
         }
     })
 
