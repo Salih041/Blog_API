@@ -70,8 +70,8 @@ router.post("/register", [
     })
 
 // verify route
-router.post("/verify-email", async(req,res)=>{
-    try{
+router.post("/verify-email", async (req, res) => {
+    try {
         const { email, code } = req.body;
 
         const user = await User.findOne({
@@ -90,10 +90,9 @@ router.post("/verify-email", async(req,res)=>{
         await user.save();
 
         res.status(200).json({ message: "Account verified! You can log in!" });
-        
-    }catch(error)
-    {
-        res.status(500).json({error: error.message})
+
+    } catch (error) {
+        res.status(500).json({ error: error.message })
     }
 })
 

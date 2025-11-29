@@ -13,7 +13,13 @@ const userSchema = new mongoose.Schema({
     verificationTokenExpires: Date,
 
     profilePicture : {type: String, default:""},
-    bio : {type: String, default:"", maxLength:140}
+    bio : {type: String, default:"", maxLength:140},
+    createdAt: { type: Date, default: Date.now }
 }, { timestamps: true })
+
+userSchema.index({ createdAt: 1 }, { 
+    expireAfterSeconds: 3600, 
+    partialFilterExpression: { isVerified: false } 
+});
 
 export default mongoose.model('User', userSchema);
