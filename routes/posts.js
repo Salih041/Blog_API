@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {   // get all posts
         const limit = parseInt(req.query.limit) || 20;
         const skipIndex = (page - 1) * limit;
 
-        const posts = await Post.find().populate("author", "username").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
+        const posts = await Post.find().populate("author", "username profilePicture").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments({});
 
         res.status(200).json({
@@ -55,7 +55,7 @@ router.get("/search", async (req, res) => {  //search post
                 { author: { $in: authorIds } }
             ]
         }
-        const posts = await Post.find(queryFilter).populate("author", "username").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
+        const posts = await Post.find(queryFilter).populate("author", "username profilePicture").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments(queryFilter);
 
         res.status(200).json({
@@ -83,7 +83,7 @@ router.get("/user/:userId", async (req, res) => {
 
 router.get("/:id", async (req, res) => {  // get one post by id
     try {
-        const post = await Post.findById(req.params.id).populate("author", "username").populate({ path: "comments.author", select: "username" });
+        const post = await Post.findById(req.params.id).populate("author", "username profilePicture").populate({ path: "comments.author", select: "username profilePicture" });
         if (!post) return res.status(404).json({ message: "Post Not found" });
 
         res.status(200).json(post);
