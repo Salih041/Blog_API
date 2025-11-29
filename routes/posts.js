@@ -95,7 +95,7 @@ router.get("/:id", async (req, res) => {  // get one post by id
 router.post("/", authMiddleware,
     [
         body("title").trim().notEmpty().withMessage("Title is required").isLength({ max: 40 }).withMessage("Title must be 40 characters maximum."),
-        body("content").trim().notEmpty().withMessage("Content is required").isLength({min:200, max: 80000 }).withMessage("Content must be at least 200 and at most 20000 characters.")
+        body("content").trim().notEmpty().withMessage("Content is required").isLength({ min: 200, max: 80000 }).withMessage("Content must be at least 200 and at most 20000 characters.")
     ],
     async (req, res) => {
         try {
@@ -181,13 +181,14 @@ router.post("/:id/comment", authMiddleware, async (req, res) => {
         const matches = text.match(mentionRegex) || [];
         const usernames = matches.map(m => m.slice(1).toLowerCase());
 
+
         let mentionIds = [];
         if (usernames.length > 0) {
             const mentionedUsers = await User.find({ username: { $in: usernames } }).select("_id");
             mentionIds = mentionedUsers.map(user => user._id);
 
             const notificationsToCreate = mentionIds
-                .filter(id => id.toString() !== req.user.userID) 
+                .filter(id => id.toString() !== req.user.userID)
                 .map(id => ({
                     recipient: id,
                     sender: req.user.userID,
@@ -203,7 +204,15 @@ router.post("/:id/comment", authMiddleware, async (req, res) => {
         const comment = {
             text: text,
             author: req.user.userID,
-            mentions : mentionIds
+            mentions: mentionIds
+        }
+        if (post.author.toString() !== req.user.userID) {
+            await Notification.create({
+                recipient: post.author,
+                sender: req.user.userID,
+                type: 'comment',
+                post: post._id
+            });
         }
 
         post.comments.push(comment);
@@ -287,6 +296,15 @@ router.put("/:id/comment/:commentid/like", authMiddleware, async (req, res) => {
             comment.likes.push(userId);
             comment.likeCount += 1;
             message = "comment liked";
+
+            if (comment.author.toString() !== userId) {
+                await Notification.create({
+                    recipient: comment.author,
+                    sender: userId,
+                    type: 'like',
+                    post: post._id
+                });
+            }
         }
 
         await post.save();
@@ -315,6 +333,15 @@ router.put("/:id/like", authMiddleware, async (req, res) => {
             post.likes.push(userId);
             post.likeCount += 1;
             message = "Liked"
+
+            if (post.author.toString() !== userId) {
+                await Notification.create({
+                    recipient: post.author,
+                    sender: userId,
+                    type: 'like',
+                    post: post._id
+                });
+            }
         }
 
         await post.save();
