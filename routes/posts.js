@@ -6,6 +6,7 @@ import upload from "../middlewares/uploadMiddleware.js";
 import Notification from "../models/Notification.js";
 import { body, validationResult } from "express-validator";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
@@ -72,12 +73,15 @@ router.get("/search", async (req, res) => {  //search post
         const regex = new RegExp(safeSearchTerm, 'i');
 
         const queryFilter = {
-            $or: [
-                { title: { $regex: safeSearchTerm, $options: 'i' } },
-                { content: { $regex: safeSearchTerm, $options: 'i' } },
-                { tags: { $in: [regex] } },
-                { author: { $in: authorIds } },
-                { statu: 'published' }
+            $and: [
+                { statu: 'published' },
+                {
+                    $or: [
+                        { title: { $regex: safeSearchTerm, $options: 'i' } },
+                        { content: { $regex: safeSearchTerm, $options: 'i' } },
+                        { tags: { $in: [regex] } },
+                    ]
+                }
             ]
         }
         const posts = await Post.find(queryFilter).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
@@ -100,7 +104,26 @@ router.get("/search", async (req, res) => {  //search post
 router.get("/user/:userId", async (req, res) => {
     try {
         let filter = { author: req.params.userId };
-        filter.statu = 'published'
+        filter.statu = 'published';
+        //Optional Auth
+        /*let currentUserId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            const token = authHeader.split(" ")[1];
+            try{
+                const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+                currentUserId = decodedToken.userID;
+            }
+            catch(error){
+                currentUserId = null;
+            }
+        }
+        const isOwner = currentUserId && currentUserId === req.params.userId;
+        // end of optional auth
+
+        if (!isOwner) {
+            filter.statu = 'published';
+        }*/
 
         const posts = await Post.find(filter).populate("author", "username displayName profilePicture").sort({ createdAt: -1 });
         res.status(200).json(posts)
@@ -109,12 +132,12 @@ router.get("/user/:userId", async (req, res) => {
     }
 })
 
-router.get("/my/drafts", authMiddleware, async (req, res) => {
+router.get("/my-drafts", authMiddleware, async (req, res) => {
     try {
         const drafts = await Post.find({
             author: req.user.userID,
             statu: 'draft'
-        }).sort({ createdAt: -1 });
+        }).populate("author", "username displayName profilePicture").sort({ createdAt: -1 });
         res.status(200).json(drafts)
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -135,7 +158,29 @@ router.get("/:id", async (req, res) => {  // get one post by id
                 .populate({ path: "comments.author", select: "username profilePicture displayName" })
                 .populate("likes", "username profilePicture displayName");
         }
-        if (!post) { console.log("BU LOG ÇALIŞIYOR"); return res.status(404).json({ message: "Post Not found" }); }
+        if (!post) return res.status(404).json({ message: "Post Not Found" });
+
+        // optional Auth
+        let currentUserId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            const token = authHeader.split(" ")[1];
+            try{
+                const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+                currentUserId = decodedToken.userID;
+            }
+            catch(error){
+                currentUserId = null;
+            }
+        }
+        const isOwner = currentUserId && currentUserId === post.author._id.toString();
+        // end of optional auth
+        if(!isOwner)
+        {
+            if (post.statu !== 'published') {
+                return res.status(403).json({ message: "You are not authorized to view this post." });
+            }
+        }
 
         res.status(200).json(post);
     } catch (error) {
@@ -244,6 +289,8 @@ router.post("/:id/comment", authMiddleware, async (req, res) => {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not FOund" });
 
+        if (post.statu !== 'published') return res.status(403).json({ message: "Cannot comment on unpublished posts." });
+
         const mentionRegex = /@(\w+)/g;
         const matches = text.match(mentionRegex) || [];
         const usernames = matches.map(m => m.slice(1).toLowerCase());
@@ -304,6 +351,8 @@ router.delete("/:id/comment/:commentid", authMiddleware, async (req, res) => {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not FOund" });
 
+        if (post.statu !== 'published') return res.status(403).json({ message: "Cannot comment on unpublished posts." });
+
         const comment = post.comments.id(req.params.commentid);
         if (!comment) return res.status(404).json({ message: "Comment not found" });
 
@@ -326,6 +375,8 @@ router.put("/:id/comment/:commentid", authMiddleware, async (req, res) => {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not FOund" });
 
+        if (post.statu !== 'published') return res.status(403).json({ message: "Cannot comment on unpublished posts." });
+
         const comment = post.comments.id(req.params.commentid);
         if (!comment) return res.status(404).json({ message: "Comment not found" });
 
@@ -345,6 +396,8 @@ router.put("/:id/comment/:commentid/like", authMiddleware, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post not found" });
+
+        if (post.statu !== 'published') return res.status(403).json({ message: "Cannot like comments on unpublished posts." });
 
         const comment = post.comments.id(req.params.commentid);
         if (!comment) return res.status(404).json({ message: "Comment not found" });
@@ -384,6 +437,8 @@ router.put("/:id/like", authMiddleware, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not Found" });
+
+        if (post.statu !== 'published') return res.status(403).json({ message: "Cannot like unpublished posts." });
 
         const userId = req.user.userID;
 
