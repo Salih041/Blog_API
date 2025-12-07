@@ -4,6 +4,8 @@ import Post from "../models/Post.js";
 import authMiddleware from "../middlewares/authMiddleware.js";
 import upload from "../middlewares/uploadMiddleware.js";
 import { cloudinary } from "../config/cloudinary.js";
+import Notification from "../models/Notification.js";
+import mongoose from "mongoose";
 
 const router = express.Router();
 
@@ -126,6 +128,37 @@ router.delete("/:id",authMiddleware,async(req,res)=>{
         await User.findByIdAndDelete(req.params.id);
 
         res.status(200).json({ message: "Your account and all your posts have been successfully deleted." });
+    }catch(error){
+        res.status(500).json({error:error.message})
+    }
+})
+
+router.put("/:id/follow",authMiddleware,async(req,res)=>{
+    try{
+        if(req.user.userID === req.params.id) return res.status(400).json({message:"You cannot follow yourself!"});
+
+        const userToFollow = await User.findById(req.params.id);
+        const currentUser = await User.findById(req.user.userID);
+        if(!userToFollow || !currentUser) return res.status(404).json({message:"User not found"});
+
+        if(!currentUser.following.some(id=>id.toString()===req.params.id)){ // not already following
+            await userToFollow.updateOne({$push:{followers:currentUser._id}});
+            await currentUser.updateOne({$push:{following:userToFollow._id}});
+            
+            await Notification.create({
+                recipient: userToFollow._id,
+                sender: currentUser._id,
+                type: "follow",
+            });
+
+            res.status(200).json({message:"User followed successfully!",isFollowing:true});
+        }
+        else{
+            await userToFollow.updateOne({$pull:{followers:currentUser._id}});
+            await currentUser.updateOne({$pull:{following:userToFollow._id}});
+            res.status(200).json({message:"User unfollowed successfully!",isFollowing:false});
+        }
+
     }catch(error){
         res.status(500).json({error:error.message})
     }

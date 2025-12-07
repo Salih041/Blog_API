@@ -101,6 +101,30 @@ router.get("/search", async (req, res) => {  //search post
     }
 })
 
+router.get("/feed",authMiddleware, async (req,res)=>{
+    try{
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skipIndex = (page - 1) * limit;
+
+        const currentUser = await User.findById(req.user.userID);
+        const feedPosts = await Post.find({ author: { $in: currentUser.following }, statu: 'published' }).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
+        const totalResults = await Post.countDocuments({ author: { $in: currentUser.following }, statu: 'published' });
+        res.status(200).json({
+            data: feedPosts,
+            pagination:{
+                currentPage: page,
+                limit: limit,
+                totalResults: totalResults,
+                totalPages: Math.ceil(totalResults/limit)
+            }
+        })
+
+    }catch(error){
+        res.status(500).json({error:error.message})
+    }
+})
+
 router.get("/user/:userId", async (req, res) => {
     try {
         let filter = { author: req.params.userId };
@@ -476,6 +500,27 @@ router.put("/:id/like", authMiddleware, async (req, res) => {
         res.status(200).json({ message: message, likeCount: post.likeCount, likes: post.likes })
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+})
+
+router.put("/:id/save",authMiddleware, async(req,res)=>{
+    try{
+        const post = await findPostByIdOrSlug(req.params.id)
+        if (!post) return res.status(404).json({ message: "Post Not Found" });
+        if (post.statu !== 'published') return res.status(403).json({ message: "Cannot save unpublished posts." });
+        const currentUser = await User.findById(req.user.userID);
+        const hasSaved = currentUser.savedPosts.some(postId=>postId.equals(post._id));
+        if(hasSaved){ // already saved
+            currentUser.updateOne({$pull:{savedPosts:post._id}});
+            res.status(200).json({message:"Post unsaved successfully!",isSaved:false});
+        }
+        else{ // not saved yet! SAVE
+            currentUser.updateOne({$push:{savedPosts:post._id}});
+            res.status(200).json({message:"Post saved successfully!",isSaved:true});
+        }
+
+    }catch(error){
+        res.status(500).json({error:error.message})
     }
 })
 
