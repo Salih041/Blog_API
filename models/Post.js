@@ -45,6 +45,10 @@ const postSchema = new mongoose.Schema({
         type: String,
         enum : ['published', 'draft'],
         default : 'published'
+    },
+    firstPublishDate : {
+        type: Date,
+        default : null
     }
 },{timestamps:true})
 

@@ -39,7 +39,7 @@ router.get("/", async (req, res) => {   // get all posts
         const limit = parseInt(req.query.limit) || 20;
         const skipIndex = (page - 1) * limit;
 
-        const posts = await Post.find({ statu: 'published' }).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
+        const posts = await Post.find({ statu: 'published' }).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ firstPublishDate: -1 }).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments({ statu: 'published' });
 
         res.status(200).json({
@@ -84,7 +84,7 @@ router.get("/search", async (req, res) => {  //search post
                 }
             ]
         }
-        const posts = await Post.find(queryFilter).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
+        const posts = await Post.find(queryFilter).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ firstPublishDate: -1 }).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments(queryFilter);
 
         res.status(200).json({
@@ -101,27 +101,27 @@ router.get("/search", async (req, res) => {  //search post
     }
 })
 
-router.get("/feed",authMiddleware, async (req,res)=>{
-    try{
+router.get("/feed", authMiddleware, async (req, res) => {
+    try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const skipIndex = (page - 1) * limit;
 
         const currentUser = await User.findById(req.user.userID);
-        const feedPosts = await Post.find({ author: { $in: currentUser.following }, statu: 'published' }).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ createdAt: -1 }).skip(skipIndex).limit(limit)
+        const feedPosts = await Post.find({ author: { $in: currentUser.following }, statu: 'published' }).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ firstPublishDate: -1 }).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments({ author: { $in: currentUser.following }, statu: 'published' });
         res.status(200).json({
             data: feedPosts,
-            pagination:{
+            pagination: {
                 currentPage: page,
                 limit: limit,
                 totalResults: totalResults,
-                totalPages: Math.ceil(totalResults/limit)
+                totalPages: Math.ceil(totalResults / limit)
             }
         })
 
-    }catch(error){
-        res.status(500).json({error:error.message})
+    } catch (error) {
+        res.status(500).json({ error: error.message })
     }
 })
 
@@ -189,18 +189,17 @@ router.get("/:id", async (req, res) => {  // get one post by id
         const authHeader = req.headers.authorization;
         if (authHeader && authHeader.startsWith("Bearer ")) {
             const token = authHeader.split(" ")[1];
-            try{
+            try {
                 const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
                 currentUserId = decodedToken.userID;
             }
-            catch(error){
+            catch (error) {
                 currentUserId = null;
             }
         }
         const isOwner = currentUserId && currentUserId === post.author._id.toString();
         // end of optional auth
-        if(!isOwner)
-        {
+        if (!isOwner) {
             if (post.statu !== 'published') {
                 return res.status(403).json({ message: "You are not authorized to view this post." });
             }
@@ -245,6 +244,9 @@ router.post("/", authMiddleware,
                 slug: slug,
                 statu: statu || 'published'
             })
+            if (statu === "published") {
+                newPost.firstPublishDate = Date.now()
+            }
 
             const savedPost = await newPost.save();
             res.status(201).json({ savedPost });
@@ -292,10 +294,14 @@ router.put("/:id", authMiddleware,
             if (title) post.title = title;
             if (content) post.content = content;
             if (tags) post.tags = tags;
+            if (!(post.firstPublishDate === null)) {
+                post.isEdited = true;
+                post.editedAt = Date.now();
+            }
             if (statu) post.statu = statu;
-
-            post.isEdited = true;
-            post.editedAt = Date.now();
+            if (post.firstPublishDate === null && statu === "published") {
+                post.firstPublishDate = Date.now()
+            }
 
             const updatedPost = await post.save();
 
@@ -376,7 +382,7 @@ router.delete("/:id/comment/:commentid", authMiddleware, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not FOund" });
-;
+        ;
 
         if (post.statu !== 'published') return res.status(403).json({ message: "Cannot comment on unpublished posts." });
 
@@ -388,7 +394,7 @@ router.delete("/:id/comment/:commentid", authMiddleware, async (req, res) => {
         const isPostOwner = post.author.toString() === req.user.userID;
         const isAdmin = currentUser.role === 'admin'
 
-        if(!isOwner && !isPostOwner && !isAdmin) return res.status(403).json({ message: "invalid auth" });
+        if (!isOwner && !isPostOwner && !isAdmin) return res.status(403).json({ message: "invalid auth" });
 
         comment.deleteOne();
         post.commentCount -= 1;
@@ -504,24 +510,24 @@ router.put("/:id/like", authMiddleware, async (req, res) => {
     }
 })
 
-router.put("/:id/save",authMiddleware, async(req,res)=>{
-    try{
+router.put("/:id/save", authMiddleware, async (req, res) => {
+    try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not Found" });
         if (post.statu !== 'published') return res.status(403).json({ message: "Cannot save unpublished posts." });
         const currentUser = await User.findById(req.user.userID);
-        const hasSaved = currentUser.savedPosts.some(postId=>postId.equals(post._id));
-        if(hasSaved){ // already saved
-            await currentUser.updateOne({$pull:{savedPosts:post._id}});
-            res.status(200).json({message:"Post unsaved successfully!",isSaved:false});
+        const hasSaved = currentUser.savedPosts.some(postId => postId.equals(post._id));
+        if (hasSaved) { // already saved
+            await currentUser.updateOne({ $pull: { savedPosts: post._id } });
+            res.status(200).json({ message: "Post unsaved successfully!", isSaved: false });
         }
-        else{ // not saved yet! SAVE
-            await currentUser.updateOne({$push:{savedPosts:post._id}});
-            res.status(200).json({message:"Post saved successfully!",isSaved:true});
+        else { // not saved yet! SAVE
+            await currentUser.updateOne({ $push: { savedPosts: post._id } });
+            res.status(200).json({ message: "Post saved successfully!", isSaved: true });
         }
 
-    }catch(error){
-        res.status(500).json({error:error.message})
+    } catch (error) {
+        res.status(500).json({ error: error.message })
     }
 })
 
