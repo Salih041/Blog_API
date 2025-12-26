@@ -7,6 +7,7 @@ import { cloudinary } from "../config/cloudinary.js";
 import Notification from "../models/Notification.js";
 import mongoose from "mongoose";
 import sanitizeHtml from "sanitize-html"
+import { URL } from "url";
 
 const router = express.Router();
 
@@ -60,39 +61,43 @@ router.put("/update/:id", authMiddleware, upload.single('profilePicture'), async
         };
 
         if(req.body.socials){
-            let socialData = JSON.parse(req.body.socials);
+            let socialData;
+            try {
+                socialData = typeof req.body.socials === 'string' 
+                    ? JSON.parse(req.body.socials) 
+                    : req.body.socials;
+            } catch (e) {
+                return res.status(400).json({ message: "Invalid JSON format for socials" });
+            }
 
-            const fixUrl = (url)=>{
-                if(!url) return "";
+            const validateUrl = (url, allowedDomains) => {
+                if (!url || typeof url !== 'string') return "";
                 let cleanUrl = url.trim();
-                if (cleanUrl.toLowerCase().startsWith("javascript:") || cleanUrl.toLowerCase().startsWith("data::") || cleanUrl.toLowerCase().startsWith("vbscript:")) {
-                    return ""; 
-                }
-                if (cleanUrl && !/^https?:\/\//i.test(cleanUrl)) {
+                if (!cleanUrl) return "";
+                
+                if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(cleanUrl)) {
                     cleanUrl = `https://${cleanUrl}`;
                 }
-                return cleanUrl;
-            };
 
-            const validateUrl = (url, allowedDomains)=>{
-                if (!url) return "";
-                const fixedUrl = fixUrl(url);
                 try{
-                    const parsedUrl = new URL(fixedUrl);
-                    const hostname = parsedUrl.hostname.toLowerCase();
-                    const cleanHostname = hostname.replace(/^www\./, '');
-                    const isValid = allowedDomains.some(domain => cleanHostname === domain || cleanHostname.endsWith(`.${domain}`));
-
-                    if(!isValid) return "";
-                    return fixedUrl;
-                }
-                catch(error){
+                    const parsedUrl = new URL(cleanUrl);
+                    if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+                        return ""; 
+                    }
+                    const hostname = parsedUrl.hostname.toLowerCase().replace(/^www\./, '');
+                    const isValid = allowedDomains.some(domain => 
+                        hostname === domain || hostname.endsWith(`.${domain}`)
+                    );
+                    if (!isValid) return "";
+                    return parsedUrl.href;
+                }catch (error) {
                     return "";
                 }
-            }
-            if(socialData.x) socialData.x = validateUrl(socialData.x,['x.com']);
-            if(socialData.instagram) socialData.instagram = validateUrl(socialData.instagram,['instagram.com']);
-            if(socialData.github) socialData.github = validateUrl(socialData.github,['github.com']);
+            };
+            if (socialData.x) socialData.x = validateUrl(socialData.x, ['x.com', 'twitter.com']);
+            if (socialData.instagram) socialData.instagram = validateUrl(socialData.instagram, ['instagram.com']);
+            if (socialData.github) socialData.github = validateUrl(socialData.github, ['github.com']);
+            
             updates.socials = socialData;
         }
 

@@ -7,6 +7,7 @@ import sendEmail from "../utils/email.js";
 import rateLimit from "express-rate-limit";
 import { registerLimiter, loginLimiter, resetPasswordLimiter } from "../middlewares/limiters.js";
 import crypto from "crypto";
+import ExpressMongoSanitize from "express-mongo-sanitize";
 
 const router = express.Router();
 const forgotPasswordLimiter = rateLimit({
@@ -81,7 +82,7 @@ router.post("/register", registerLimiter ,[
 // verify route
 router.post("/verify-email", async (req, res) => {
     try {
-        const { email, code } = req.body;
+        const { email, code } = ExpressMongoSanitize.sanitize(req.body);
 
         const user = await User.findOne({
             email: email,
@@ -144,7 +145,7 @@ router.post("/login",loginLimiter,
 
 router.post("/forgot-password",resetPasswordLimiter, async (req, res) => {
     try {
-        const { email } = req.body;
+        const { email } = ExpressMongoSanitize.sanitize(req.body);
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(200).json({
@@ -196,7 +197,7 @@ router.post("/reset-password", [
             return res.status(400).json({ message: errors.array()[0].msg });
         }
         try {
-            const { email, code, newPassword } =req.body;
+            const { email, code, newPassword } =ExpressMongoSanitize.sanitize(req.body);
             const user = await User.findOne({
                 email: email,
                 resetPasswordToken: code,
