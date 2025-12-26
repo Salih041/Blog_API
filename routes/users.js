@@ -13,7 +13,7 @@ const router = express.Router();
 
 router.get("/:id", async (req, res) => {  // user by id
     try {
-        const user = await User.findById(req.params.id).select("-password");
+        const user = await User.findById(req.params.id).select("-password").populate("following","username profilePicture displayName").populate("followers","username profilePicture displayName");
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
