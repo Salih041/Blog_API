@@ -178,13 +178,14 @@ router.get("/:id", async (req, res) => {  // get one post by id
         const id = req.params.id;
         let post;
         if (mongoose.Types.ObjectId.isValid(id)) {  // id
-            post = await Post.findById(id).populate("author", "username profilePicture displayName").populate({ path: "comments.author", select: "username profilePicture displayName " }).populate("likes", "username profilePicture displayName");
+            post = await Post.findById(id).populate("author", "username profilePicture displayName").populate({ path: "comments.author", select: "username profilePicture displayName " }).populate({path:"comments.likes", select: "username profilePicture displayName"}).populate("likes", "username profilePicture displayName");
         }
         if (!post) // slug
         {
             post = await Post.findOne({ slug: id })
                 .populate("author", "username profilePicture displayName")
                 .populate({ path: "comments.author", select: "username profilePicture displayName" })
+                .populate({path: "comments.likes", select: "username profilePicture displayName"})
                 .populate("likes", "username profilePicture displayName");
         }
         if (!post) return res.status(404).json({ message: "Post Not Found" });
@@ -558,8 +559,14 @@ router.put("/:id/comment/:commentid/like", authMiddleware, async (req, res) => {
         }
 
         await post.save();
+        await post.populate({
+            path: "comments.likes",
+            select: "username profilePicture displayName"
+        });
+        const updatedComment = post.comments.id(req.params.commentid);
 
-        res.status(200).json({ message: message, likeCount: comment.likeCount, likes: comment.likes })
+
+        res.status(200).json({ message: message, likeCount: updatedComment.likeCount, likes: updatedComment.likes })
     } catch (error) {
         res.status(500).json({ error: error.message })
     }
