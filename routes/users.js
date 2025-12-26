@@ -6,6 +6,7 @@ import upload from "../middlewares/uploadMiddleware.js";
 import { cloudinary } from "../config/cloudinary.js";
 import Notification from "../models/Notification.js";
 import mongoose from "mongoose";
+import sanitizeHtml from "sanitize-html"
 
 const router = express.Router();
 
@@ -64,7 +65,7 @@ router.put("/update/:id", authMiddleware, upload.single('profilePicture'), async
             const fixUrl = (url)=>{
                 if(!url) return "";
                 let cleanUrl = url.trim();
-                if (cleanUrl.toLowerCase().startsWith("javascript:")) {
+                if (cleanUrl.toLowerCase().startsWith("javascript:") || cleanUrl.toLowerCase().startsWith("data::") || cleanUrl.toLowerCase().startsWith("vbscript:")) {
                     return ""; 
                 }
                 if (cleanUrl && !/^https?:\/\//i.test(cleanUrl)) {

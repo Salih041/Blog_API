@@ -6,6 +6,7 @@ import User from "../models/User.js";
 import sendEmail from "../utils/email.js";
 import rateLimit from "express-rate-limit";
 import { registerLimiter, loginLimiter, resetPasswordLimiter } from "../middlewares/limiters.js";
+import crypto from "crypto";
 
 const router = express.Router();
 const forgotPasswordLimiter = rateLimit({
@@ -37,7 +38,7 @@ router.post("/register", registerLimiter ,[
             const hashedPassword = await bcrypt.hash(password, 12);
 
             // verify
-            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const verificationCode = crypto.randomInt(100000, 999999).toString();
 
             const newUser = new User({
                 username,
@@ -151,7 +152,7 @@ router.post("/forgot-password",resetPasswordLimiter, async (req, res) => {
                 email: email
             });
         }
-        const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const resetCode = crypto.randomInt(100000, 999999).toString();
 
         user.resetPasswordToken = resetCode;
         user.resetPasswordExpires = Date.now() + 1 * 60 * 60 * 1000; // 1 Saat geçerli
@@ -186,7 +187,8 @@ router.post("/forgot-password",resetPasswordLimiter, async (req, res) => {
 })
 
 router.post("/reset-password", [
-    body("newPassword").isLength({ min: 6, max: 72 }).withMessage("Password must be between 6-72 characters").matches(/\d/).withMessage("Password must contain at least one number").matches(/[a-z]/).withMessage("Password must contain at least one letter").matches(/[A-Z]/).withMessage("Password must contain at least one capital letter")
+    body("newPassword").isLength({ min: 6, max: 72 }).withMessage("Password must be between 6-72 characters").matches(/\d/).withMessage("Password must contain at least one number").matches(/[a-z]/).withMessage("Password must contain at least one letter").matches(/[A-Z]/).withMessage("Password must contain at least one capital letter"),
+    body("code").notEmpty().withMessage("Code is required").isString().withMessage("Invalid code format")
 ],
     async (req, res) => {
         const errors = validationResult(req);
@@ -194,7 +196,7 @@ router.post("/reset-password", [
             return res.status(400).json({ message: errors.array()[0].msg });
         }
         try {
-            const { email, code, newPassword } = req.body;
+            const { email, code, newPassword } =req.body;
             const user = await User.findOne({
                 email: email,
                 resetPasswordToken: code,

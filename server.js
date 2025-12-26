@@ -8,7 +8,7 @@ import authRoutes from "./routes/auth.js"
 import postRoutes from "./routes/posts.js"
 import userRoutes from "./routes/users.js"
 import notificationRoutes from "./routes/notifications.js"
-
+import ExpressMongoSanitize from "express-mongo-sanitize";
 
 
 dotenv.config();
@@ -49,6 +49,12 @@ const limiter = rateLimit({
 app.use(limiter);
 app.use(helmet());
 app.use(express.json());
+//app.use(ExpressMongoSanitize());
+app.use((req,res,next)=>{
+    if(req.body) req.body = ExpressMongoSanitize.sanitize(req.body);
+    next();
+})
+
 app.use(express.urlencoded({ extended: true }));
 
 const mongoSanitizeMiddleware = (req, res, next) => {
