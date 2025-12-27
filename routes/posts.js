@@ -181,6 +181,42 @@ router.get("/user/:userId", async (req, res) => {
     }
 })
 
+router.get("/my-liked", authMiddleware, async(req,res)=>{
+    try{
+        const user = await User.findById(req.user.userID).select('likedPosts');
+        if(!user) return res.status(404).json({message : "User not found"});
+
+        const liked = await Post.find({
+            _id : {$in : user.likedPosts}
+        }).populate("author", "username displayName profilePicture")
+        .select("-comments -likes").
+        sort({firstPublishDate : -1});
+
+        res.status(200).json(liked)
+    }catch(error)
+    {
+        res.status(500).json({error: error.message})
+    }
+})
+
+router.get("/my-saved", authMiddleware, async (req,res)=>{
+    try{
+        const user = await User.findById(req.user.userID).select('savedPosts');
+        if(!user) return res.status(404).json({message : "User not found"});
+
+        const saveds = await Post.find({
+            _id : {$in : user.savedPosts}
+        }).populate("author", "username displayName profilePicture")
+        .select("-comments -likes")
+        .sort({firstPublishDate: -1});
+
+        res.status(200).json(saveds);
+    }catch(error)
+    {
+        res.status(500).json({error: error.message});
+    }
+})
+
 router.get("/my-drafts", authMiddleware, async (req, res) => {
     try {
         const drafts = await Post.find({
@@ -607,11 +643,19 @@ router.put("/:id/like", authMiddleware, async (req, res) => {
             post.likes.pull(userId);
             post.likeCount -= 1;
             message = "Unliked";
+
+            await User.findByIdAndUpdate(userId,{
+                $pull : {likedPosts: post._id}
+            })
         }
         else {
             post.likes.push(userId);
             post.likeCount += 1;
             message = "Liked"
+
+            await User.findByIdAndUpdate(userId, {
+                $addToSet : {likedPosts : post._id}
+            })
 
             if (post.author.toString() !== userId) {
                 await Notification.create({
@@ -640,11 +684,11 @@ router.put("/:id/save", authMiddleware, async (req, res) => {
         const hasSaved = currentUser.savedPosts.some(postId => postId.equals(post._id));
         if (hasSaved) { // already saved
             await currentUser.updateOne({ $pull: { savedPosts: post._id } });
-            res.status(200).json({ message: "Post unsaved successfully!", isSaved: false });
+            res.status(200).json({ message: "Post removed from bookmarks", isSaved: false });
         }
         else { // not saved yet! SAVE
             await currentUser.updateOne({ $push: { savedPosts: post._id } });
-            res.status(200).json({ message: "Post saved successfully!", isSaved: true });
+            res.status(200).json({ message: "Post bookmarked successfully", isSaved: true });
         }
 
     } catch (error) {
