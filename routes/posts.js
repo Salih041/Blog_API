@@ -59,36 +59,56 @@ router.get("/", async (req, res) => {   // get all posts
 
 router.get("/search", async (req, res) => {  //search post
     try {
-        const searchTerm = req.query.q;
-        if (!searchTerm) return res.status(400).json({ message: "term required" });
-        
-        if (typeof searchTerm !== 'string') {
-            searchTerm = String(searchTerm);
-        }
+        let searchTerm = req.query.q;
+        let searchTag = req.query.tag;
+        if (!searchTerm && !searchTag) return res.status(400).json({ message: "term required" });
 
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const skipIndex = (page - 1) * limit;
 
-        const safeSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        let queryFilter = {};
 
-        const users = await User.find({ username: { $regex: safeSearchTerm, $options: 'i' } }).select("_id");
-        const authorIds = users.map(user => user._id);
+        if (searchTag) {  // search by tag
+            if (typeof searchTag !== 'string') {
+                searchTag = String(searchTag);
+            }
+            const safeSearchTag = searchTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(safeSearchTag, 'i');
 
-        const regex = new RegExp(safeSearchTerm, 'i');
-
-        const queryFilter = {
-            $and: [
-                { statu: 'published' },
-                {
-                    $or: [
-                        { title: { $regex: safeSearchTerm, $options: 'i' } },
-                        { content: { $regex: safeSearchTerm, $options: 'i' } },
-                        { tags: { $in: [regex] } },
-                    ]
-                }
-            ]
+            queryFilter = {
+                $and : [
+                    {statu : 'published'},
+                    {tags : {$in : [regex]}}
+                ]
+            }
         }
+
+        else if (searchTerm) {  // search
+            if (typeof searchTerm !== 'string') {
+                searchTerm = String(searchTerm);
+            }
+            const safeSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(safeSearchTerm, 'i');
+
+            const users = await User.find({ username: { $regex: safeSearchTerm, $options: 'i' } }).select("_id");
+            const authorIds = users.map(user => user._id);
+
+            queryFilter = {
+                $and: [
+                    { statu: 'published' },
+                    {
+                        $or: [
+                            { title: { $regex: safeSearchTerm, $options: 'i' } },
+                            { content: { $regex: safeSearchTerm, $options: 'i' } },
+                            { tags: { $in: [regex] } },
+                            { author: { $in: authorIds } }
+                        ]
+                    }
+                ]
+            }
+        }
+
         const posts = await Post.find(queryFilter).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ firstPublishDate: -1 }).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments(queryFilter);
 
@@ -178,14 +198,14 @@ router.get("/:id", async (req, res) => {  // get one post by id
         const id = req.params.id;
         let post;
         if (mongoose.Types.ObjectId.isValid(id)) {  // id
-            post = await Post.findById(id).populate("author", "username profilePicture displayName").populate({ path: "comments.author", select: "username profilePicture displayName " }).populate({path:"comments.likes", select: "username profilePicture displayName"}).populate("likes", "username profilePicture displayName");
+            post = await Post.findById(id).populate("author", "username profilePicture displayName").populate({ path: "comments.author", select: "username profilePicture displayName " }).populate({ path: "comments.likes", select: "username profilePicture displayName" }).populate("likes", "username profilePicture displayName");
         }
         if (!post) // slug
         {
             post = await Post.findOne({ slug: id })
                 .populate("author", "username profilePicture displayName")
                 .populate({ path: "comments.author", select: "username profilePicture displayName" })
-                .populate({path: "comments.likes", select: "username profilePicture displayName"})
+                .populate({ path: "comments.likes", select: "username profilePicture displayName" })
                 .populate("likes", "username profilePicture displayName");
         }
         if (!post) return res.status(404).json({ message: "Post Not Found" });
