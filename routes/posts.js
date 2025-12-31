@@ -317,7 +317,7 @@ router.post("/", authMiddleware,
                     return sanitizeHtml(String(tag), {
                         allowedTags: [],
                         allowedAttributes: {}
-                    }).trim();
+                    }).trim().toLowerCase();
                 })
                     .filter(tag => tag.length > 0);
             }
@@ -413,7 +413,7 @@ router.put("/:id", authMiddleware,
                         return sanitizeHtml(String(tag), {
                             allowedTags: [],
                             allowedAttributes: {}
-                        }).trim();
+                        }).trim().toLowerCase();
                     })
                         .filter(tag => tag.length > 0);
                 }
