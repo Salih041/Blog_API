@@ -8,6 +8,7 @@ import rateLimit from "express-rate-limit";
 import { registerLimiter, loginLimiter, resetPasswordLimiter } from "../middlewares/limiters.js";
 import crypto from "crypto";
 import ExpressMongoSanitize from "express-mongo-sanitize";
+import authMiddleware from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 const forgotPasswordLimiter = rateLimit({
@@ -216,5 +217,16 @@ router.post("/reset-password", [
             res.status(500).json({ error: error.message })
         }
     })
+
+router.get("/me", authMiddleware, async (req,res)=>{
+    try{
+        const user = await User.findById(req.user.userID).select('_id username role');
+        if(!user) return res.status(404).json({message:"User not found"});
+        return res.status(200).json(user);
+    }catch(error)
+    {
+        return res.status(500).json({ error: error.message })
+    }
+})
 
 export default router;
