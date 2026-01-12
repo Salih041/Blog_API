@@ -18,7 +18,7 @@ router.get("/sitemap.xml", async (req, res) => {
 
         console.log("Generating new sitemap.");
 
-        const posts = await Post.find().select("slug updatedAt _id").sort({ firstPublishDate: -1 });
+        const posts = await Post.find({statu : "published"}).select("slug updatedAt _id").sort({ firstPublishDate: -1 });
         const staticUrls = [
             'https://www.selamy.me',
             'https://www.selamy.me/login',
