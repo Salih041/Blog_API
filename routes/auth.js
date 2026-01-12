@@ -33,6 +33,9 @@ router.post("/register", registerLimiter ,[
             const { username, email, password } = req.body;
 
             const existingUser = await User.findOne({ $or: [{ username: username.toLowerCase() }, { email: email.toLowerCase() }] });
+
+            if(existingUser && existingUser.isBanned) return res.status(403).json({ message: "This account has been banned." });
+
             if (existingUser) {
                 return res.status(400).json({ message: "This username or email is already taken" });
             }
@@ -132,6 +135,10 @@ router.post("/login",loginLimiter,
                 return res.status(403).json({ message: "Please verify your email first." });
             }
 
+            if(user.isBanned){
+                return res.status(403).json({ message: "Your account has been banned." });
+            }
+
             const token = jwt.sign(
                 { userID: user._id, username: user.username },
                 process.env.JWT_SECRET,
@@ -220,7 +227,7 @@ router.post("/reset-password", [
 
 router.get("/me", authMiddleware, async (req,res)=>{
     try{
-        const user = await User.findById(req.user.userID).select('_id username role');
+        const user = await User.findById(req.user.userID).select('_id username role profilePicture');
         if(!user) return res.status(404).json({message:"User not found"});
         return res.status(200).json(user);
     }catch(error)

@@ -39,6 +39,11 @@ const userSchema = new mongoose.Schema({
         x : {type:String, default:''},
         instagram : {type:String, default : ''},
         github : {type:String, default : ''}
+    },
+
+    isBanned : {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true })
 

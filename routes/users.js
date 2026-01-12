@@ -147,6 +147,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
         }
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: "User not found" });
+        if(user.isBanned) return res.status(403).json({ message: "Banned users cannot delete their accounts." });
 
         if (user.profilePicture) {
             const publicId = getPublicIdFromUrl(user.profilePicture);
@@ -191,6 +192,27 @@ router.put("/:id/follow", authMiddleware, async (req, res) => {
         }
 
     } catch (error) {
+        res.status(500).json({ error: error.message })
+    }
+})
+
+router.put("/ban-account/:id", authMiddleware, async (req,res)=>{
+    try{
+        const userToBan = await User.findById(req.params.id);
+        if(!userToBan) return res.status(404).json({ message: "User not found" });
+
+        const currentUser = await User.findById(req.user.userID);
+        if(!currentUser) return res.status(404).json({ message: "User not found" });
+        if(currentUser.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+        
+        if(userToBan.role === "admin") return res.status(403).json({ message: "You cannot ban another admin." });
+        if(userToBan.isBanned) return res.status(400).json({ message: "User is already banned." });
+        
+        userToBan.isBanned = true;
+        await userToBan.save();
+        res.status(200).json({ message: "User has been banned successfully." });
+    }catch(error)
+    {
         res.status(500).json({ error: error.message })
     }
 })
