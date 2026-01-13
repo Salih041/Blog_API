@@ -32,10 +32,10 @@ xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
 ${staticUrls.map(url => `<url>
     <loc>${url}</loc>
     <changefreq>daily</changefreq>
-    <priority>0.7</priority>
+    <priority>1.0</priority>
 </url>`).join('')}
 ${posts.map(post => `<url>
-    <loc>https://www.selamy.me/${post.slug}</loc>
+    <loc>https://www.selamy.me/posts/${post.slug}</loc>
     <lastmod>${new Date(post.updatedAt).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

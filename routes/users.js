@@ -29,12 +29,19 @@ router.get("/", authMiddleware, async (req, res) => { // get all users (admin)
 
 router.get("/:id", async (req, res) => {  // user by id
     try {
-        const user = await User.findById(req.params.id).select("-password").populate("following", "username profilePicture displayName").populate("followers", "username profilePicture displayName");
+
+        const id = req.params.id;
+        if(!mongoose.Types.ObjectId.isValid(id)){
+            return res.status(404).json({ message: "User Not Found (Invalid user ID)" });
+        }
+
+        const user = await User.findById(id).select("-password").populate("following", "username profilePicture displayName").populate("followers", "username profilePicture displayName");
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
         res.status(200).json(user);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: error.message })
     }
 })
