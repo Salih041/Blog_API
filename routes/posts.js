@@ -188,29 +188,24 @@ router.get("/user/:userId", async (req, res) => {
     try {
         let filter = { author: req.params.userId };
         filter.statu = 'published';
-        //Optional Auth
-        /*let currentUserId = null;
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith("Bearer ")) {
-            const token = authHeader.split(" ")[1];
-            try{
-                const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-                currentUserId = decodedToken.userID;
-            }
-            catch(error){
-                currentUserId = null;
-            }
-        }
-        const isOwner = currentUserId && currentUserId === req.params.userId;
-        // end of optional auth
+        const totalResults = await Post.countDocuments(filter);
 
-        if (!isOwner) {
-            filter.statu = 'published';
-        }*/
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skipIndex = (page - 1) * limit;
 
-        const posts = await Post.find(filter).populate("author", "username displayName profilePicture").sort({ createdAt: -1 });
-        res.status(200).json(posts)
+        const posts = await Post.find(filter).populate("author", "username displayName profilePicture").sort({ createdAt: -1 }).skip(skipIndex).limit(limit);
+        res.status(200).json({
+            data: posts,
+            pagination: {
+                currentPage: page,
+                limit: limit,
+                totalResults: totalResults,
+                totalPages: Math.ceil(totalResults / limit)
+            }
+        })
     } catch (error) {
+        console.log(error)
         res.status(500).json({ error: error.message })
     }
 })
@@ -220,13 +215,28 @@ router.get("/my-liked", authMiddleware, async (req, res) => {
         const user = await User.findById(req.user.userID).select('likedPosts');
         if (!user) return res.status(404).json({ message: "User not found" });
 
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skipIndex = (page - 1) * limit;
+        const totalResults = user.likedPosts.length;
+
         const liked = await Post.find({
             _id: { $in: user.likedPosts }
         }).populate("author", "username displayName profilePicture")
-            .select("-comments -likes").
-            sort({ firstPublishDate: -1 });
+            .select("-comments -likes")
+            .sort({ firstPublishDate: -1 })
+            .skip(skipIndex)
+            .limit(limit);
 
-        res.status(200).json(liked)
+        res.status(200).json({
+            data: liked,
+            pagination: {
+                currentPage: page,
+                limit: limit,
+                totalResults: totalResults,
+                totalPages: Math.ceil(totalResults / limit)
+            }
+        })
     } catch (error) {
         res.status(500).json({ error: error.message })
     }
@@ -237,13 +247,28 @@ router.get("/my-saved", authMiddleware, async (req, res) => {
         const user = await User.findById(req.user.userID).select('savedPosts');
         if (!user) return res.status(404).json({ message: "User not found" });
 
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skipIndex = (page - 1) * limit;
+        const totalResults = user.savedPosts.length;
+
         const saveds = await Post.find({
             _id: { $in: user.savedPosts }
         }).populate("author", "username displayName profilePicture")
             .select("-comments -likes")
-            .sort({ firstPublishDate: -1 });
+            .sort({ firstPublishDate: -1 })
+            .skip(skipIndex)
+            .limit(limit);
 
-        res.status(200).json(saveds);
+        res.status(200).json({
+            data: saveds,
+            pagination: {
+                currentPage: page,
+                limit: limit,
+                totalResults: totalResults,
+                totalPages: Math.ceil(totalResults / limit)
+            }
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -251,11 +276,24 @@ router.get("/my-saved", authMiddleware, async (req, res) => {
 
 router.get("/my-drafts", authMiddleware, async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skipIndex = (page - 1) * limit;
+        const totalResults = await Post.countDocuments({ author: req.user.userID, statu: 'draft' });
+
         const drafts = await Post.find({
             author: req.user.userID,
             statu: 'draft'
-        }).populate("author", "username displayName profilePicture").sort({ createdAt: -1 });
-        res.status(200).json(drafts)
+        }).populate("author", "username displayName profilePicture").sort({ createdAt: -1 }).skip(skipIndex).limit(limit);
+        res.status(200).json({
+            data: drafts,
+            pagination: {
+                currentPage: page,
+                limit: limit,
+                totalResults: totalResults,
+                totalPages: Math.ceil(totalResults / limit)
+            }
+        })
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
