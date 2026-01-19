@@ -16,7 +16,7 @@ import path from "path";
 
 dotenv.config();
 const app = express();
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 
 //! DEPLOYMENT cors settings
 const allowedOrigins = [
