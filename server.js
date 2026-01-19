@@ -20,7 +20,7 @@ app.set('trust proxy', 1);
 
 //! DEPLOYMENT cors settings
 const allowedOrigins = [
-    "http://localhost:5173", // Test
+    //"http://localhost:5173", // Test
     "https://www.selamy.me",
     "https://selamy.me", // url
     "https://google.com", // !!
@@ -28,8 +28,8 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: (origin, callback) => {
-        if(!origin) return callback(null, true);
-        
+        if (!origin) return callback(null, true);
+
         if (origin && allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
@@ -60,8 +60,8 @@ app.use(limiter);
 app.use(helmet());
 app.use(express.json());
 //app.use(ExpressMongoSanitize());
-app.use((req,res,next)=>{
-    if(req.body) req.body = ExpressMongoSanitize.sanitize(req.body);
+app.use((req, res, next) => {
+    if (req.body) req.body = ExpressMongoSanitize.sanitize(req.body);
     next();
 })
 
@@ -70,7 +70,7 @@ app.use(express.urlencoded({ extended: true }));
 const mongoSanitizeMiddleware = (req, res, next) => {
     const sanitize = (obj) => {
         if (!obj || typeof obj !== 'object') return;
-        
+
         for (let key in obj) {
             if (key.startsWith('$') || key.includes('.')) {
                 delete obj[key];
@@ -79,8 +79,8 @@ const mongoSanitizeMiddleware = (req, res, next) => {
             }
         }
     };
-    sanitize(req.body);   
-    sanitize(req.params);    
+    sanitize(req.body);
+    sanitize(req.params);
     next();
 };
 app.use(mongoSanitizeMiddleware);
@@ -91,9 +91,15 @@ mongoose.connect(dburl)
         console.log("DB connected");
         app.listen(PORT, () => { console.log("Server is running") });
     }).catch((err) => {
-        console.error("DB Error : "+err);
+        console.error("DB Error : " + err);
         process.exit(1);
     })
+
+app.use((req, res, next) => {
+    console.log("IP:", req.ip);
+    console.log("XFF:", req.headers["x-forwarded-for"]);
+    next();
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
