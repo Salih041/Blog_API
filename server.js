@@ -16,19 +16,19 @@ import path from "path";
 
 dotenv.config();
 const app = express();
-app.set('trust proxy', true);
+app.set('trust proxy', 'loopback');
 
 //! DEPLOYMENT cors settings
 const allowedOrigins = [
     //"http://localhost:5173", // Test
     "https://www.selamy.me",
     "https://selamy.me", // url
-    "https://google.com", // !!
+    "https://google.com", // !! 
 ];
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
+        if (!origin) return callback(null, true); //mobile apps or curl requests
 
         if (origin && allowedOrigins.includes(origin)) {
             callback(null, true);
@@ -52,38 +52,23 @@ const limiter = rateLimit({
     }
 });
 
-app.get('/robots.txt', (req, res) => {
+app.get('/robots.txt', (req, res) => { //robots.txt
     res.sendFile(path.resolve('robots.txt'));
 });
 
 app.use(limiter);
 app.use(helmet());
 app.use(express.json());
-//app.use(ExpressMongoSanitize());
+
+
 app.use((req, res, next) => {
-    if (req.body) req.body = ExpressMongoSanitize.sanitize(req.body);
+    if (req.body) ExpressMongoSanitize.sanitize(req.body);
+    if (req.params) ExpressMongoSanitize.sanitize(req.params);
+    if (req.query) ExpressMongoSanitize.sanitize(req.query);
     next();
 })
 
 app.use(express.urlencoded({ extended: true }));
-
-const mongoSanitizeMiddleware = (req, res, next) => {
-    const sanitize = (obj) => {
-        if (!obj || typeof obj !== 'object') return;
-
-        for (let key in obj) {
-            if (key.startsWith('$') || key.includes('.')) {
-                delete obj[key];
-            } else {
-                sanitize(obj[key]);
-            }
-        }
-    };
-    sanitize(req.body);
-    sanitize(req.params);
-    next();
-};
-app.use(mongoSanitizeMiddleware);
 
 
 mongoose.connect(dburl)
@@ -94,12 +79,6 @@ mongoose.connect(dburl)
         console.error("DB Error : " + err);
         process.exit(1);
     })
-
-app.use((req, res, next) => {
-    console.log("IP:", req.ip);
-    console.log("XFF:", req.headers["x-forwarded-for"]);
-    next();
-});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);

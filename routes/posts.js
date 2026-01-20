@@ -93,7 +93,9 @@ router.get("/", async (req, res) => {   // get all posts
 
 router.get("/search", async (req, res) => {  //search post
     try {
+        
         let searchTerm = req.query.q;
+        if(searchTerm.length > 100) return res.status(400).json({message : "too long"})
         let searchTag = req.query.tag;
         if (!searchTerm && !searchTag) return res.status(400).json({ message: "term required" });
 
