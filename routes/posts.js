@@ -64,7 +64,7 @@ router.get("/popular-tags", async (req, res) => {
         res.status(200).json(popularTags);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Tags could not be retrieved" })
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -87,7 +87,8 @@ router.get("/", async (req, res) => {   // get all posts
             }
         })
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -158,7 +159,8 @@ router.get("/search", async (req, res) => {  //search post
             }
         });
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -182,7 +184,8 @@ router.get("/feed", authMiddleware, async (req, res) => {
         })
 
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -207,8 +210,8 @@ router.get("/user/:userId", async (req, res) => {
             }
         })
     } catch (error) {
-        console.log(error)
-        res.status(500).json({ error: error.message })
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -240,7 +243,8 @@ router.get("/my-liked", authMiddleware, async (req, res) => {
             }
         })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -272,7 +276,8 @@ router.get("/my-saved", authMiddleware, async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -297,7 +302,8 @@ router.get("/my-drafts", authMiddleware, async (req, res) => {
             }
         })
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -341,7 +347,8 @@ router.get("/:id", async (req, res) => {  // get one post by id
 
         res.status(200).json(post);
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -409,7 +416,8 @@ router.post("/", authMiddleware,
             const savedPost = await newPost.save();
             res.status(201).json({ savedPost });
         } catch (error) {
-            res.status(500).json({ error: error.message })
+            console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
         }
     })
 
@@ -436,7 +444,8 @@ router.delete("/:id", authMiddleware, async (req, res) => {
         res.status(200).json({ message: "Post deleted" });
 
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -518,7 +527,8 @@ router.put("/:id", authMiddleware,
             res.status(200).json(updatedPost)
 
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
         }
     })
 
@@ -587,7 +597,8 @@ router.post("/:id/comment", authMiddleware, async (req, res) => {
 
         res.status(200).json(addedComment);
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -629,7 +640,8 @@ router.delete("/:id/comment/:commentid", authMiddleware, async (req, res) => {
         res.status(200).json(savedpost);
 
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -655,7 +667,8 @@ router.put("/:id/comment/:commentid", authMiddleware, async (req, res) => {
         const updatedPost = await post.save();
         res.status(200).json(updatedPost);
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -702,7 +715,8 @@ router.put("/:id/comment/:commentid/like", authMiddleware, async (req, res) => {
 
         res.status(200).json({ message: message, likeCount: updatedComment.likeCount, likes: updatedComment.likes })
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -769,7 +783,8 @@ router.put("/:id/like", authMiddleware, async (req, res) => {
 
         res.status(200).json({ message: message, likeCount: post.likeCount, likes: post.likes })
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -790,7 +805,8 @@ router.put("/:id/save", authMiddleware, async (req, res) => {
         }
 
     } catch (error) {
-        res.status(500).json({ error: error.message })
+       console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -801,7 +817,8 @@ router.post("/upload-image", authMiddleware, upload.single('image'), async (req,
         }
         res.status(200).json({ url: req.file.path });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 });
 

@@ -12,6 +12,10 @@ import reportRoutes from "./routes/report.js";
 import sitemapRoute from "./siteMapRoute.js";
 import ExpressMongoSanitize from "express-mongo-sanitize";
 import path from "path";
+import swaggerUi from 'swagger-ui-express';
+import { specs } from './config/swagger.js';
+import swaggerAuthMiddleware from "./middlewares/swaggerAuthMiddleware.js";
+
 
 
 dotenv.config();
@@ -20,7 +24,7 @@ app.set('trust proxy', 'loopback');
 
 //! DEPLOYMENT cors settings
 const allowedOrigins = [
-    //"http://localhost:5173", // Test
+    "http://localhost:5173", // Test
     "https://www.selamy.me",
     "https://selamy.me", // url
     "https://google.com", // !! 
@@ -52,6 +56,11 @@ const limiter = rateLimit({
     }
 });
 
+const swaggerLoginLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 30
+});
+
 app.get('/robots.txt', (req, res) => { //robots.txt
     res.sendFile(path.resolve('robots.txt'));
 });
@@ -79,6 +88,14 @@ mongoose.connect(dburl)
         console.error("DB Error : " + err);
         process.exit(1);
     })
+
+app.use('/internal-docs',swaggerLoginLimiter, swaggerAuthMiddleware, swaggerUi.serve, swaggerUi.setup(specs, {
+    swaggerOptions: {
+        persistAuthorization: true,
+        displayOperationId: true,
+    }
+}));
+
 
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
