@@ -24,10 +24,11 @@ app.set('trust proxy', 'loopback');
 
 //! DEPLOYMENT cors settings
 const allowedOrigins = [
-    "http://localhost:5173", // Test
+    //"http://localhost:5173", // Test
     "https://www.selamy.me",
     "https://selamy.me", // url
     "https://google.com", // !! 
+    "https://salih-blog-api-server.onrender.com"
 ];
 
 app.use(cors({
