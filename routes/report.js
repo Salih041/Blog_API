@@ -4,10 +4,11 @@ import authMiddleware from "../middlewares/authMiddleware.js";
 import sanitizeHtml from "sanitize-html";
 import User from "../models/User.js";
 import ExpressMongoSanitize from "express-mongo-sanitize";
+import { adminLimiter, reportLimiter } from "../middlewares/limiters.js";
 
 const router = express.Router();
 
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", authMiddleware,reportLimiter, async (req, res) => {
     try {
         const { target, targetType, targetPost ,reason, description } = ExpressMongoSanitize.sanitize(req.body); 
         if (!target || !targetType || !reason) {
@@ -46,7 +47,7 @@ router.post("/", authMiddleware, async (req, res) => {
     }
 })
 
-router.get("/", authMiddleware, async (req,res)=>{
+router.get("/", authMiddleware,adminLimiter, async (req,res)=>{
     try{
         const currentUser = await User.findById(req.user.userID).select("-password");
         if(currentUser.role !== "admin") {
@@ -63,7 +64,7 @@ router.get("/", authMiddleware, async (req,res)=>{
     }
 })
 
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware,adminLimiter, async (req, res) => {
     try {
         const currentUser = await User.findById(req.user.userID);
         if (!currentUser) {

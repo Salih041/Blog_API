@@ -8,6 +8,7 @@ import { body, validationResult } from "express-validator";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import sanitizeHtml from "sanitize-html";
+import { readLimiter, userReadLimiter, writeLimiter } from "../middlewares/limiters.js";
 
 const router = express.Router();
 
@@ -38,7 +39,7 @@ let popularTagsCache = null;
 let lastCacheTime = 0;
 const CACHE_DURATION = 60 * 60 * 1000;
 
-router.get("/popular-tags", async (req, res) => {
+router.get("/popular-tags", readLimiter, async (req, res) => {
     try {
         const currentTime = Date.now();
 
@@ -68,7 +69,7 @@ router.get("/popular-tags", async (req, res) => {
     }
 })
 
-router.get("/", async (req, res) => {   // get all posts
+router.get("/", readLimiter, async (req, res) => {   // get all posts
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -92,11 +93,11 @@ router.get("/", async (req, res) => {   // get all posts
     }
 })
 
-router.get("/search", async (req, res) => {  //search post
+router.get("/search", readLimiter, async (req, res) => {  //search post
     try {
-        
+
         let searchTerm = req.query.q;
-        if(typeof(searchTerm) !== 'string' || searchTerm.length > 100) return res.status(400).json({message : "too long"})
+        if (typeof (searchTerm) !== 'string' || searchTerm.length > 100) return res.status(400).json({ message: "too long" })
         let searchTag = req.query.tag;
         if (!searchTerm && !searchTag) return res.status(400).json({ message: "term required" });
 
@@ -164,7 +165,7 @@ router.get("/search", async (req, res) => {  //search post
     }
 })
 
-router.get("/feed", authMiddleware, async (req, res) => {
+router.get("/feed", authMiddleware, userReadLimiter, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -189,7 +190,7 @@ router.get("/feed", authMiddleware, async (req, res) => {
     }
 })
 
-router.get("/user/:userId", async (req, res) => {
+router.get("/user/:userId", readLimiter, async (req, res) => {
     try {
         let filter = { author: req.params.userId };
         filter.statu = 'published';
@@ -215,7 +216,7 @@ router.get("/user/:userId", async (req, res) => {
     }
 })
 
-router.get("/my-liked", authMiddleware, async (req, res) => {
+router.get("/my-liked", authMiddleware, userReadLimiter, async (req, res) => {
     try {
         const user = await User.findById(req.user.userID).select('likedPosts');
         if (!user) return res.status(404).json({ message: "User not found" });
@@ -248,7 +249,7 @@ router.get("/my-liked", authMiddleware, async (req, res) => {
     }
 })
 
-router.get("/my-saved", authMiddleware, async (req, res) => {
+router.get("/my-saved", authMiddleware, userReadLimiter, async (req, res) => {
     try {
         const user = await User.findById(req.user.userID).select('savedPosts');
         if (!user) return res.status(404).json({ message: "User not found" });
@@ -281,7 +282,7 @@ router.get("/my-saved", authMiddleware, async (req, res) => {
     }
 })
 
-router.get("/my-drafts", authMiddleware, async (req, res) => {
+router.get("/my-drafts", authMiddleware, userReadLimiter, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -307,7 +308,7 @@ router.get("/my-drafts", authMiddleware, async (req, res) => {
     }
 })
 
-router.get("/:id", async (req, res) => {  // get one post by id
+router.get("/:id", readLimiter, async (req, res) => {  // get one post by id
     try {
         const id = req.params.id;
         let post;
@@ -352,12 +353,12 @@ router.get("/:id", async (req, res) => {  // get one post by id
     }
 })
 
-router.post("/", authMiddleware,
-    [
-        body("title").trim().notEmpty().withMessage("Title is required").isLength({ max: 40 }).withMessage("Title must be 40 characters maximum."),
-        body("content").trim().notEmpty().withMessage("Content is required").isLength({ min: 200, max: 80000 }).withMessage("Content must be at least 200 and at most 20000 characters."),
-        body("tags").optional().isArray().withMessage("Tags must be an array")
-    ],
+router.post("/", authMiddleware, writeLimiter,
+[
+    body("title").trim().notEmpty().withMessage("Title is required").isLength({ max: 40 }).withMessage("Title must be 40 characters maximum."),
+    body("content").trim().notEmpty().withMessage("Content is required").isLength({ min: 200, max: 80000 }).withMessage("Content must be at least 200 and at most 20000 characters."),
+    body("tags").optional().isArray().withMessage("Tags must be an array")
+],
     async (req, res) => {
         try {
 
@@ -417,11 +418,11 @@ router.post("/", authMiddleware,
             res.status(201).json({ savedPost });
         } catch (error) {
             console.error(error);
-        res.status(500).json({ message: "Internal Server Error" })
+            res.status(500).json({ message: "Internal Server Error" })
         }
     })
 
-router.delete("/:id", authMiddleware, async (req, res) => {
+router.delete("/:id", authMiddleware, writeLimiter,async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post not found" });
@@ -449,7 +450,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     }
 })
 
-router.put("/:id", authMiddleware,
+router.put("/:id", authMiddleware, writeLimiter,
     [
         body("title").trim().notEmpty().withMessage("Title is required").isLength({ max: 40 }).withMessage("Title must be 40 characters maximum."),
         body("content").trim().notEmpty().withMessage("Content is required").isLength({ max: 80000 }).withMessage("Content must be 20000 characters maximum.")
@@ -528,11 +529,11 @@ router.put("/:id", authMiddleware,
 
         } catch (error) {
             console.error(error);
-        res.status(500).json({ message: "Internal Server Error" })
+            res.status(500).json({ message: "Internal Server Error" })
         }
     })
 
-router.post("/:id/comment", authMiddleware, async (req, res) => {
+router.post("/:id/comment", authMiddleware, writeLimiter, async (req, res) => {
     try {
         const { text } = req.body;
 
@@ -602,7 +603,7 @@ router.post("/:id/comment", authMiddleware, async (req, res) => {
     }
 })
 
-router.delete("/:id/comment/:commentid", authMiddleware, async (req, res) => {
+router.delete("/:id/comment/:commentid", authMiddleware,writeLimiter, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not FOund" });
@@ -645,7 +646,7 @@ router.delete("/:id/comment/:commentid", authMiddleware, async (req, res) => {
     }
 })
 
-router.put("/:id/comment/:commentid", authMiddleware, async (req, res) => {
+router.put("/:id/comment/:commentid", authMiddleware, writeLimiter, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not FOund" });
@@ -672,7 +673,7 @@ router.put("/:id/comment/:commentid", authMiddleware, async (req, res) => {
     }
 })
 
-router.put("/:id/comment/:commentid/like", authMiddleware, async (req, res) => {
+router.put("/:id/comment/:commentid/like", authMiddleware, writeLimiter, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post not found" });
@@ -720,7 +721,7 @@ router.put("/:id/comment/:commentid/like", authMiddleware, async (req, res) => {
     }
 })
 
-router.put("/:id/like", authMiddleware, async (req, res) => {
+router.put("/:id/like", authMiddleware,writeLimiter, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not Found" });
@@ -788,7 +789,7 @@ router.put("/:id/like", authMiddleware, async (req, res) => {
     }
 })
 
-router.put("/:id/save", authMiddleware, async (req, res) => {
+router.put("/:id/save", authMiddleware,writeLimiter, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not Found" });
@@ -805,12 +806,12 @@ router.put("/:id/save", authMiddleware, async (req, res) => {
         }
 
     } catch (error) {
-       console.error(error);
+        console.error(error);
         res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
-router.post("/upload-image", authMiddleware, upload.single('image'), async (req, res) => {
+router.post("/upload-image", authMiddleware, writeLimiter, upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: "Image couldnt be upload." });

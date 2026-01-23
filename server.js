@@ -15,6 +15,7 @@ import path from "path";
 import swaggerUi from 'swagger-ui-express';
 import { specs } from './config/swagger.js';
 import swaggerAuthMiddleware from "./middlewares/swaggerAuthMiddleware.js";
+import { globalLimiter } from "./middlewares/limiters.js";
 
 
 
@@ -24,7 +25,7 @@ app.set('trust proxy', 'loopback');
 
 //! DEPLOYMENT cors settings
 const allowedOrigins = [
-    //"http://localhost:5173", // Test
+    "http://localhost:5173", // Test
     "https://www.selamy.me",
     "https://selamy.me", // url
     "https://google.com", // !! 
@@ -46,17 +47,6 @@ app.use(cors({
 const PORT = process.env.PORT || 3000;
 const dburl = process.env.MONGO_URL;
 
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15min
-    max: 200,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-        status: 429,
-        message: "Too many requests. Please try again in 15 minutes."
-    }
-});
-
 const swaggerLoginLimiter = rateLimit({
     windowMs: 10 * 60 * 1000,
     max: 30
@@ -66,7 +56,6 @@ app.get('/robots.txt', (req, res) => { //robots.txt
     res.sendFile(path.resolve('robots.txt'));
 });
 
-app.use(limiter);
 app.use(helmet());
 app.use(express.json());
 
@@ -97,6 +86,7 @@ app.use('/internal-docs',swaggerLoginLimiter, swaggerAuthMiddleware, swaggerUi.s
     }
 }));
 
+app.use(globalLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);

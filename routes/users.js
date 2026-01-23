@@ -8,10 +8,11 @@ import Notification from "../models/Notification.js";
 import mongoose from "mongoose";
 import sanitizeHtml from "sanitize-html"
 import { URL } from "url";
+import { adminLimiter, readLimiter, writeLimiter } from "../middlewares/limiters.js";
 
 const router = express.Router();
 
-router.get("/", authMiddleware, async (req, res) => { // get all users (admin)
+router.get("/", authMiddleware,adminLimiter, async (req, res) => { // get all users (admin)
     try {
         const currentUser = await User.findById(req.user.userID).select("-password");
         if (currentUser.role !== "admin") {
@@ -27,7 +28,7 @@ router.get("/", authMiddleware, async (req, res) => { // get all users (admin)
     }
 })
 
-router.get("/:id", async (req, res) => {  // user by id
+router.get("/:id",readLimiter, async (req, res) => {  // user by id
     try {
 
         const id = req.params.id;
@@ -60,7 +61,7 @@ const getPublicIdFromUrl = (url) => {
     }
 };
 
-router.put("/update/:id", authMiddleware, upload.single('profilePicture'), async (req, res) => {
+router.put("/update/:id", authMiddleware,writeLimiter, upload.single('profilePicture'), async (req, res) => {
     try {
         const { bio, displayName } = req.body;
         if (req.user.userID !== req.params.id) {
@@ -147,7 +148,7 @@ router.put("/update/:id", authMiddleware, upload.single('profilePicture'), async
     }
 })
 
-router.delete("/:id", authMiddleware, async (req, res) => {
+router.delete("/:id", authMiddleware,writeLimiter, async (req, res) => {
     try {
         if (req.user.userID !== req.params.id) {
             return res.status(403).json({ message: "You cannot make transactions outside of your own account!" });
@@ -172,7 +173,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     }
 })
 
-router.put("/:id/follow", authMiddleware, async (req, res) => {
+router.put("/:id/follow", authMiddleware,writeLimiter, async (req, res) => {
     try {
         if (req.user.userID === req.params.id) return res.status(400).json({ message: "You cannot follow yourself!" });
 
@@ -203,7 +204,7 @@ router.put("/:id/follow", authMiddleware, async (req, res) => {
     }
 })
 
-router.put("/ban-account/:id", authMiddleware, async (req,res)=>{
+router.put("/ban-account/:id", authMiddleware,adminLimiter, async (req,res)=>{
     try{
         const userToBan = await User.findById(req.params.id);
         if(!userToBan) return res.status(404).json({ message: "User not found" });

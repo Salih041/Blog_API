@@ -4,20 +4,14 @@ import jwt from "jsonwebtoken";
 import { body, validationResult } from "express-validator";
 import User from "../models/User.js";
 import sendEmail from "../utils/email.js";
-import rateLimit from "express-rate-limit";
-import { registerLimiter, loginLimiter, resetPasswordLimiter } from "../middlewares/limiters.js";
+import {authEmailLimiter, authIpLimiter, authUsernameLimiter, userReadLimiter } from "../middlewares/limiters.js";
 import crypto from "crypto";
 import ExpressMongoSanitize from "express-mongo-sanitize";
 import authMiddleware from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
-const forgotPasswordLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 3,
-    message: { message: "Too many requests. Please try again after 15 minutes." }
-});
 
-router.post("/register", registerLimiter ,[
+router.post("/register", authIpLimiter ,[
     body("username").trim().notEmpty().withMessage("Username is required").isLength({ min: 3, max: 20 }).withMessage("Username must be between 3-20 characters").matches(/^[a-zA-Z0-9_]+$/).withMessage("Username can only contain only letters,numbers and underscore"),
     body("email").trim().isEmail().withMessage("Invalid Email").normalizeEmail(),
     body("password").isLength({ min: 6, max: 72 }).withMessage("Password must be between 6-72 characters").matches(/\d/).withMessage("Password must contain at least one number").matches(/[a-z]/).withMessage("Password must contain at least one letter").matches(/[A-Z]/).withMessage("Password must contain at least one capital letter")
@@ -84,7 +78,7 @@ router.post("/register", registerLimiter ,[
     })
 
 // verify route
-router.post("/verify-email", async (req, res) => {
+router.post("/verify-email",authEmailLimiter, async (req, res) => {
     try {
         const { email, code } = ExpressMongoSanitize.sanitize(req.body);
 
@@ -111,7 +105,7 @@ router.post("/verify-email", async (req, res) => {
 })
 
 
-router.post("/login",loginLimiter,
+router.post("/login",authUsernameLimiter,
     [
         body("username").notEmpty().withMessage("Username is required"),
         body("password").notEmpty().withMessage("Password is required")
@@ -151,7 +145,7 @@ router.post("/login",loginLimiter,
         }
     })
 
-router.post("/forgot-password",resetPasswordLimiter, async (req, res) => {
+router.post("/forgot-password",authEmailLimiter, async (req, res) => {
     try {
         const { email } = ExpressMongoSanitize.sanitize(req.body);
         const user = await User.findOne({ email });
@@ -195,7 +189,7 @@ router.post("/forgot-password",resetPasswordLimiter, async (req, res) => {
     }
 })
 
-router.post("/reset-password", [
+router.post("/reset-password",authEmailLimiter, [
     body("newPassword").isLength({ min: 6, max: 72 }).withMessage("Password must be between 6-72 characters").matches(/\d/).withMessage("Password must contain at least one number").matches(/[a-z]/).withMessage("Password must contain at least one letter").matches(/[A-Z]/).withMessage("Password must contain at least one capital letter"),
     body("code").notEmpty().withMessage("Code is required").isString().withMessage("Invalid code format")
 ],
@@ -225,7 +219,7 @@ router.post("/reset-password", [
         }
     })
 
-router.get("/me", authMiddleware, async (req,res)=>{
+router.get("/me", authMiddleware, userReadLimiter,async (req,res)=>{
     try{
         const user = await User.findById(req.user.userID).select('_id username role profilePicture');
         if(!user) return res.status(404).json({message:"User not found"});
