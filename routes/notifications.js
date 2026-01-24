@@ -14,7 +14,8 @@ router.get("/", authMiddleware,userReadLimiter, async (req, res) => {
             .limit(30);
         res.status(200).json(notifications)
     } catch (error) {
-        res.status(500).json({error:error.message})
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -32,7 +33,8 @@ router.put("/:id/read",authMiddleware,userReadLimiter, async (req,res)=>{
         res.status(200).json(notification);
 
     }catch(error){
-        res.status(500).json({error:error.message});
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -44,7 +46,8 @@ router.put("/mark-all-read", authMiddleware,userReadLimiter, async (req, res) =>
         );
         res.status(200).json({ message: "All read" });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 });
 

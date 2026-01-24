@@ -4,14 +4,14 @@ import jwt from "jsonwebtoken";
 import { body, validationResult } from "express-validator";
 import User from "../models/User.js";
 import sendEmail from "../utils/email.js";
-import {authEmailLimiter, authIpLimiter, authUsernameLimiter, userReadLimiter } from "../middlewares/limiters.js";
+import { authEmailLimiter, authIpLimiter, authUsernameLimiter, userReadLimiter } from "../middlewares/limiters.js";
 import crypto from "crypto";
 import ExpressMongoSanitize from "express-mongo-sanitize";
 import authMiddleware from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/register", authIpLimiter ,[
+router.post("/register", authIpLimiter, [
     body("username").trim().notEmpty().withMessage("Username is required").isLength({ min: 3, max: 20 }).withMessage("Username must be between 3-20 characters").matches(/^[a-zA-Z0-9_]+$/).withMessage("Username can only contain only letters,numbers and underscore"),
     body("email").trim().isEmail().withMessage("Invalid Email").normalizeEmail(),
     body("password").isLength({ min: 6, max: 72 }).withMessage("Password must be between 6-72 characters").matches(/\d/).withMessage("Password must contain at least one number").matches(/[a-z]/).withMessage("Password must contain at least one letter").matches(/[A-Z]/).withMessage("Password must contain at least one capital letter")
@@ -28,7 +28,7 @@ router.post("/register", authIpLimiter ,[
 
             const existingUser = await User.findOne({ $or: [{ username: username.toLowerCase() }, { email: email.toLowerCase() }] });
 
-            if(existingUser && existingUser.isBanned) return res.status(403).json({ message: "This account has been banned." });
+            if (existingUser && existingUser.isBanned) return res.status(403).json({ message: "This account has been banned." });
 
             if (existingUser) {
                 return res.status(400).json({ message: "This username or email is already taken" });
@@ -73,12 +73,13 @@ router.post("/register", authIpLimiter ,[
             res.status(201).json({ message: "Kullanıcı oluşturuldu", userId: savedUser._id });
         } catch (error) {
             if (error.code === 11100) return res.status(400).json({ message: "There is already a user with this informations." });
-            res.status(500).json({ error: error.message });
+            console.error(error)
+            res.status(500).json({ message: "Internal Server Error" })
         }
     })
 
 // verify route
-router.post("/verify-email",authEmailLimiter, async (req, res) => {
+router.post("/verify-email", authEmailLimiter, async (req, res) => {
     try {
         const { email, code } = ExpressMongoSanitize.sanitize(req.body);
 
@@ -100,12 +101,13 @@ router.post("/verify-email",authEmailLimiter, async (req, res) => {
         res.status(200).json({ message: "Account verified! You can log in!" });
 
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
 
-router.post("/login",authUsernameLimiter,
+router.post("/login", authUsernameLimiter,
     [
         body("username").notEmpty().withMessage("Username is required"),
         body("password").notEmpty().withMessage("Password is required")
@@ -129,7 +131,7 @@ router.post("/login",authUsernameLimiter,
                 return res.status(403).json({ message: "Please verify your email first." });
             }
 
-            if(user.isBanned){
+            if (user.isBanned) {
                 return res.status(403).json({ message: "Your account has been banned." });
             }
 
@@ -141,11 +143,12 @@ router.post("/login",authUsernameLimiter,
 
             res.status(200).json({ token, userID: user._id, role: user.role });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            console.error(error)
+            res.status(500).json({ message: "Internal Server Error" })
         }
     })
 
-router.post("/forgot-password",authEmailLimiter, async (req, res) => {
+router.post("/forgot-password", authEmailLimiter, async (req, res) => {
     try {
         const { email } = ExpressMongoSanitize.sanitize(req.body);
         const user = await User.findOne({ email });
@@ -158,7 +161,7 @@ router.post("/forgot-password",authEmailLimiter, async (req, res) => {
         const resetCode = crypto.randomInt(100000, 999999).toString();
 
         user.resetPasswordToken = resetCode;
-        user.resetPasswordExpires = Date.now() + 1 * 60 * 60 * 1000; // 1 Saat geçerli
+        user.resetPasswordExpires = Date.now() + 1 * 60 * 60 * 1000; // 1 hour
         await user.save();
 
         const message = `
@@ -177,19 +180,21 @@ router.post("/forgot-password",authEmailLimiter, async (req, res) => {
                 subject: "Password Reset Code",
                 html: message
             })
-            res.status(200).json({ message: "The reset code has been sent to your email address."});
+            res.status(200).json({ message: "The reset code has been sent to your email address." });
         } catch (emailError) {
             user.resetPasswordToken = undefined;
             user.resetPasswordExpires = undefined;
             await user.save();
+            console.error(emailError)
             return res.status(500).json({ message: "Mail couldnt be sent." });
         }
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
-router.post("/reset-password",authEmailLimiter, [
+router.post("/reset-password", authEmailLimiter, [
     body("newPassword").isLength({ min: 6, max: 72 }).withMessage("Password must be between 6-72 characters").matches(/\d/).withMessage("Password must contain at least one number").matches(/[a-z]/).withMessage("Password must contain at least one letter").matches(/[A-Z]/).withMessage("Password must contain at least one capital letter"),
     body("code").notEmpty().withMessage("Code is required").isString().withMessage("Invalid code format")
 ],
@@ -199,7 +204,7 @@ router.post("/reset-password",authEmailLimiter, [
             return res.status(400).json({ message: errors.array()[0].msg });
         }
         try {
-            const { email, code, newPassword } =ExpressMongoSanitize.sanitize(req.body);
+            const { email, code, newPassword } = ExpressMongoSanitize.sanitize(req.body);
             const user = await User.findOne({
                 email: email,
                 resetPasswordToken: code,
@@ -215,18 +220,19 @@ router.post("/reset-password",authEmailLimiter, [
             await user.save();
             res.status(200).json({ message: "Your password has been changed successfully! You can log in." });
         } catch (error) {
-            res.status(500).json({ error: error.message })
+            console.error(error)
+            res.status(500).json({ message: "Internal Server Error" })
         }
     })
 
-router.get("/me", authMiddleware, userReadLimiter,async (req,res)=>{
-    try{
+router.get("/me", authMiddleware, userReadLimiter, async (req, res) => {
+    try {
         const user = await User.findById(req.user.userID).select('_id username role profilePicture');
-        if(!user) return res.status(404).json({message:"User not found"});
+        if (!user) return res.status(404).json({ message: "User not found" });
         return res.status(200).json(user);
-    }catch(error)
-    {
-        return res.status(500).json({ error: error.message })
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 

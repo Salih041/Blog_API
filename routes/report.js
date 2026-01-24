@@ -8,9 +8,9 @@ import { adminLimiter, reportLimiter } from "../middlewares/limiters.js";
 
 const router = express.Router();
 
-router.post("/", authMiddleware,reportLimiter, async (req, res) => {
+router.post("/", authMiddleware, reportLimiter, async (req, res) => {
     try {
-        const { target, targetType, targetPost ,reason, description } = ExpressMongoSanitize.sanitize(req.body); 
+        const { target, targetType, targetPost, reason, description } = ExpressMongoSanitize.sanitize(req.body);
         if (!target || !targetType || !reason) {
             return res.status(400).json({ message: "Missing required fields" });
         }
@@ -19,7 +19,7 @@ router.post("/", authMiddleware,reportLimiter, async (req, res) => {
             reporter: String(req.user.userID),
             target: String(target)
         })
-        console.log(typeof(req.user.userID))
+        console.log(typeof (req.user.userID))
         if (existingReport) return res.status(409).json({ message: "You have already reported this content" })
 
         if (description.length > 300) return res.status(413).json({ message: "Description is too long" });
@@ -42,43 +42,43 @@ router.post("/", authMiddleware,reportLimiter, async (req, res) => {
         await newReport.save();
         res.status(201).json({ message: "Report submitted successfully" });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message })
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
-router.get("/", authMiddleware,adminLimiter, async (req,res)=>{
-    try{
+router.get("/", authMiddleware, adminLimiter, async (req, res) => {
+    try {
         const currentUser = await User.findById(req.user.userID).select("-password");
-        if(currentUser.role !== "admin") {
-            return res.status(403).json({message : "Forbidden"})
+        if (currentUser.role !== "admin") {
+            return res.status(403).json({ message: "Forbidden" })
         }
-        else{
-            const reports = await Report.find().populate('reporter', 'username displayName profilePicture').populate('target').populate('targetPost').sort({createdAt : -1});
+        else {
+            const reports = await Report.find().populate('reporter', 'username displayName profilePicture').populate('target').populate('targetPost').sort({ createdAt: -1 });
             res.status(200).json(reports);
         }
-    }catch(error)
-    {
-        console.error(error);
-        res.status(500).json({error:error.message});
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
-router.delete('/:id', authMiddleware,adminLimiter, async (req, res) => {
+router.delete('/:id', authMiddleware, adminLimiter, async (req, res) => {
     try {
         const currentUser = await User.findById(req.user.userID);
         if (!currentUser) {
             return res.status(404).json({ message: "User not found" });
         }
-        if(currentUser.role !== "admin") {
-            return res.status(403).json({message : "Unauth"})
+        if (currentUser.role !== "admin") {
+            return res.status(403).json({ message: "Unauth" })
         }
-        else{
+        else {
             await Report.findByIdAndDelete(req.params.id);
             res.status(200).json("Report resolved/deleted");
         }
     } catch (err) {
-        res.status(500).json({error : err.message});
+        console.error(err)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 });
 

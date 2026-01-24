@@ -12,27 +12,27 @@ import { adminLimiter, readLimiter, writeLimiter } from "../middlewares/limiters
 
 const router = express.Router();
 
-router.get("/", authMiddleware,adminLimiter, async (req, res) => { // get all users (admin)
+router.get("/", authMiddleware, adminLimiter, async (req, res) => { // get all users (admin)
     try {
         const currentUser = await User.findById(req.user.userID).select("-password");
         if (currentUser.role !== "admin") {
             return res.status(403).json({ message: "Forbidden" })
         }
-        else{
+        else {
             const allUsers = await User.find().select("displayName username _id createdAt").sort({ createdAt: -1 });
             res.status(200).json(allUsers);
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: error.message })
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
-router.get("/:id",readLimiter, async (req, res) => {  // user by id
+router.get("/:id", readLimiter, async (req, res) => {  // user by id
     try {
 
         const id = req.params.id;
-        if(!mongoose.Types.ObjectId.isValid(id)){
+        if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(404).json({ message: "User Not Found (Invalid user ID)" });
         }
 
@@ -43,7 +43,7 @@ router.get("/:id",readLimiter, async (req, res) => {  // user by id
         res.status(200).json(user);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: error.message })
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
@@ -61,7 +61,7 @@ const getPublicIdFromUrl = (url) => {
     }
 };
 
-router.put("/update/:id", authMiddleware,writeLimiter, upload.single('profilePicture'), async (req, res) => {
+router.put("/update/:id", authMiddleware, writeLimiter, upload.single('profilePicture'), async (req, res) => {
     try {
         const { bio, displayName } = req.body;
         if (req.user.userID !== req.params.id) {
@@ -144,18 +144,19 @@ router.put("/update/:id", authMiddleware,writeLimiter, upload.single('profilePic
         res.status(200).json(updatedUser);
 
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
-router.delete("/:id", authMiddleware,writeLimiter, async (req, res) => {
+router.delete("/:id", authMiddleware, writeLimiter, async (req, res) => {
     try {
         if (req.user.userID !== req.params.id) {
             return res.status(403).json({ message: "You cannot make transactions outside of your own account!" });
         }
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: "User not found" });
-        if(user.isBanned) return res.status(403).json({ message: "Banned users cannot delete their accounts." });
+        if (user.isBanned) return res.status(403).json({ message: "Banned users cannot delete their accounts." });
 
         if (user.profilePicture) {
             const publicId = getPublicIdFromUrl(user.profilePicture);
@@ -169,11 +170,12 @@ router.delete("/:id", authMiddleware,writeLimiter, async (req, res) => {
 
         res.status(200).json({ message: "Your account and all your posts have been successfully deleted." });
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
-router.put("/:id/follow", authMiddleware,writeLimiter, async (req, res) => {
+router.put("/:id/follow", authMiddleware, writeLimiter, async (req, res) => {
     try {
         if (req.user.userID === req.params.id) return res.status(400).json({ message: "You cannot follow yourself!" });
 
@@ -200,28 +202,29 @@ router.put("/:id/follow", authMiddleware,writeLimiter, async (req, res) => {
         }
 
     } catch (error) {
-        res.status(500).json({ error: error.message })
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
-router.put("/ban-account/:id", authMiddleware,adminLimiter, async (req,res)=>{
-    try{
+router.put("/ban-account/:id", authMiddleware, adminLimiter, async (req, res) => {
+    try {
         const userToBan = await User.findById(req.params.id);
-        if(!userToBan) return res.status(404).json({ message: "User not found" });
+        if (!userToBan) return res.status(404).json({ message: "User not found" });
 
         const currentUser = await User.findById(req.user.userID);
-        if(!currentUser) return res.status(404).json({ message: "User not found" });
-        if(currentUser.role !== "admin") return res.status(403).json({ message: "Forbidden" });
-        
-        if(userToBan.role === "admin") return res.status(403).json({ message: "You cannot ban another admin." });
-        if(userToBan.isBanned) return res.status(400).json({ message: "User is already banned." });
-        
+        if (!currentUser) return res.status(404).json({ message: "User not found" });
+        if (currentUser.role !== "admin") return res.status(403).json({ message: "Forbidden" });
+
+        if (userToBan.role === "admin") return res.status(403).json({ message: "You cannot ban another admin." });
+        if (userToBan.isBanned) return res.status(400).json({ message: "User is already banned." });
+
         userToBan.isBanned = true;
         await userToBan.save();
         res.status(200).json({ message: "User has been banned successfully." });
-    }catch(error)
-    {
-        res.status(500).json({ error: error.message })
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" })
     }
 })
 
