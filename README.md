@@ -4,10 +4,11 @@
 ![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=%2361DAFB)
 ![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=for-the-badge&logo=mongodb&logoColor=white)
 ![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=JSON%20web%20tokens)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 
 **SelamY Blog API** is the robust server-side application powering the Selamy Blog platform. Built with Node.js and Express, it provides a secure RESTful API for content management, user authentication, and media handling.
 
-[**🔴 Live Demo (Frontend)**](https://selamy.vercel.app)
+[**🔴 Live Demo**](https://selamy.vercel.app)
 
 ---
 
@@ -15,15 +16,15 @@
 
 - **Secure Authentication:** JWT-based authentication with secure password hashing (Bcrypt).
 - **Advanced Security:**
-  - **Rate Limiting:** Protection against brute-force and DDoS attacks.
+  - **Rate Limiting:** Protection against brute-force attacks.
   - **Helmet:** Secure HTTP headers to protect against well-known vulnerabilities.
   - **Input Validation:** Strict data validation using `express-validator`.
   - **NoSQL Injection Protection:** Sanitized queries against injection attacks.
   - **CORS Configuration:** Configured for secure cross-origin requests.
 - **Media Management:** Integrated **Cloudinary** & **Multer** for optimized image uploads and storage.
 - **Content Management:** Full CRUD operations for posts and comments.
-- **Advanced Search:** Regex-based search functionality for titles, content, and tags.
-- **User Profiles:** Profile management, bio updates, and avatar uploads with auto-cleanup mechanisms.
+- **Advanced Search:** Regex-based search functionality for titles, content, tags and users.
+- **User Profiles:** Profile management, bio updates, and avatar uploads.
 
 ## Tech Stack
 
@@ -41,9 +42,10 @@
 Follow these steps to set up the project ***locally***:
 
 ### Prerequisites
-- Node.js (v18 or higher)
+- Node.js
 - MongoDB Atlas Account
 - Cloudinary Account
+- Redis
 
 ### Installation
 1. **Clone the repository**
@@ -56,10 +58,14 @@ Follow these steps to set up the project ***locally***:
 3. **Environment Variables** Create a .env file in the root directory and add the following configuration:
    ```bash
     MONGO_URL=your_db_url
-    JWT_SECRET=your_super_secure_secret_key
-    CLOUDINARY_CLOUD_NAME=your_cloud_name
-    CLOUDINARY_API_KEY=your_api_key
-    CLOUDINARY_API_SECRET=your_api_secret
+   JWT_SECRET=your_secure_secret_key
+   CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+   CLOUDINARY_API_KEY=your_cloudinary_api_key
+   CLOUDINARY_API_SECRET=your_api_secret
+   SWAGGER_PASSWORD= your_swagger_pass
+   SWAGGER_USERNAME= your_swagger_id
+   RESEND_KEY= your_resend_api_key
+   REDIS_URL= your_redis
 4. **Run the server**
    ```bash
    npm run dev

@@ -38,6 +38,7 @@ const findPostByIdOrSlug = async (id) => {
 let popularTagsCache = null;
 let lastCacheTime = 0;
 const CACHE_DURATION = 60 * 60 * 1000;
+const MAX_COMMENT_LENGTH = 20000
 
 router.get("/popular-tags", readLimiter, async (req, res) => {
     try {
@@ -97,7 +98,7 @@ router.get("/search", readLimiter, async (req, res) => {  //search post
     try {
 
         let searchTerm = req.query.q;
-        if (typeof (searchTerm) !== 'string' || searchTerm.length > 100) return res.status(400).json({ message: "too long" })
+        if (searchTerm && (typeof (searchTerm) !== 'string' || searchTerm.length > 100)) return res.status(400).json({ message: "too long" })
         let searchTag = req.query.tag;
         if (!searchTerm && !searchTag) return res.status(400).json({ message: "term required" });
 
@@ -129,7 +130,7 @@ router.get("/search", readLimiter, async (req, res) => {  //search post
             const safeSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(safeSearchTerm, 'i');
 
-            const users = await User.find({ username: { $regex: safeSearchTerm, $options: 'i' } }).select("_id");
+            const users = await User.find({ $or: [{ username: { $regex: safeSearchTerm, $options: 'i' } }, { displayName: { $regex: safeSearchTerm, $options: 'i' } }] }).select("_id");
             const authorIds = users.map(user => user._id);
 
             queryFilter = {
@@ -354,11 +355,11 @@ router.get("/:id", readLimiter, async (req, res) => {  // get one post by id
 })
 
 router.post("/", authMiddleware, writeLimiter,
-[
-    body("title").trim().notEmpty().withMessage("Title is required").isLength({ max: 40 }).withMessage("Title must be 40 characters maximum."),
-    body("content").trim().notEmpty().withMessage("Content is required").isLength({ min: 200, max: 80000 }).withMessage("Content must be at least 200 and at most 20000 characters."),
-    body("tags").optional().isArray().withMessage("Tags must be an array")
-],
+    [
+        body("title").trim().notEmpty().withMessage("Title is required").isLength({ max: 40 }).withMessage("Title must be 40 characters maximum."),
+        body("content").trim().notEmpty().withMessage("Content is required").isLength({ min: 150, max: 80000 }).withMessage("Content must be at least 150 and at most 20000 characters."),
+        body("tags").optional().isArray().withMessage("Tags must be an array")
+    ],
     async (req, res) => {
         try {
 
@@ -422,7 +423,7 @@ router.post("/", authMiddleware, writeLimiter,
         }
     })
 
-router.delete("/:id", authMiddleware, writeLimiter,async (req, res) => {
+router.delete("/:id", authMiddleware, writeLimiter, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post not found" });
@@ -453,7 +454,8 @@ router.delete("/:id", authMiddleware, writeLimiter,async (req, res) => {
 router.put("/:id", authMiddleware, writeLimiter,
     [
         body("title").trim().notEmpty().withMessage("Title is required").isLength({ max: 40 }).withMessage("Title must be 40 characters maximum."),
-        body("content").trim().notEmpty().withMessage("Content is required").isLength({ max: 80000 }).withMessage("Content must be 20000 characters maximum.")
+        body("content").trim().notEmpty().withMessage("Content is required").isLength({ min: 150, max: 80000 }).withMessage("Content must be at least 150 and at most 20000 characters."),
+        body("tags").optional().isArray().withMessage("Tags must be an array")
     ],
     async (req, res) => {
         try {
@@ -538,6 +540,7 @@ router.post("/:id/comment", authMiddleware, writeLimiter, async (req, res) => {
         const { text } = req.body;
 
         if (!text) return res.status(400).json({ message: "text required" });
+        if (text.trim() > MAX_COMMENT_LENGTH) return res.status(400).json({ message: "max length: 20000" })
 
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not FOund" });
@@ -603,7 +606,7 @@ router.post("/:id/comment", authMiddleware, writeLimiter, async (req, res) => {
     }
 })
 
-router.delete("/:id/comment/:commentid", authMiddleware,writeLimiter, async (req, res) => {
+router.delete("/:id/comment/:commentid", authMiddleware, writeLimiter, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not FOund" });
@@ -659,6 +662,9 @@ router.put("/:id/comment/:commentid", authMiddleware, writeLimiter, async (req, 
         if (!(comment.author.toString() === req.user.userID)) return res.status(403).json({ message: "invalid auth" });
 
         const { text } = req.body;
+        if (!text) return res.status(400).json({ message: "text required" })
+        if (text.trim() > MAX_COMMENT_LENGTH) return res.status(400).json({ message: "max length: 20000" })
+
         const cleanText = sanitizeHtml(text, {
             allowedTags: [],
             allowedAttributes: {}
@@ -721,7 +727,7 @@ router.put("/:id/comment/:commentid/like", authMiddleware, writeLimiter, async (
     }
 })
 
-router.put("/:id/like", authMiddleware,writeLimiter, async (req, res) => {
+router.put("/:id/like", authMiddleware, writeLimiter, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not Found" });
@@ -789,7 +795,7 @@ router.put("/:id/like", authMiddleware,writeLimiter, async (req, res) => {
     }
 })
 
-router.put("/:id/save", authMiddleware,writeLimiter, async (req, res) => {
+router.put("/:id/save", authMiddleware, writeLimiter, async (req, res) => {
     try {
         const post = await findPostByIdOrSlug(req.params.id)
         if (!post) return res.status(404).json({ message: "Post Not Found" });
