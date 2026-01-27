@@ -8,7 +8,7 @@
 
 **SelamY Blog API** is the robust server-side application powering the Selamy Blog platform. Built with Node.js and Express, it provides a secure RESTful API for content management, user authentication, and media handling.
 
-[**🔴 Live Demo**](https://selamy.vercel.app)
+[**🔴 Live Demo**](https://www.selamy.me)
 
 ---
 
