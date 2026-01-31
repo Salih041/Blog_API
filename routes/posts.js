@@ -76,7 +76,7 @@ router.get("/", readLimiter, async (req, res) => {   // get all posts
         const limit = parseInt(req.query.limit) || 20;
         const skipIndex = (page - 1) * limit;
 
-        const posts = await Post.find({ statu: 'published' }).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ firstPublishDate: -1 }).skip(skipIndex).limit(limit)
+        const posts = await Post.find({ statu: 'published' }).populate("author", "username profilePicture displayName").select("-comments -likes").sort({ priority: -1, firstPublishDate: -1 }).skip(skipIndex).limit(limit)
         const totalResults = await Post.countDocuments({ statu: 'published' });
 
         res.status(200).json({

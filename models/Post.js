@@ -49,6 +49,11 @@ const postSchema = new mongoose.Schema({
     firstPublishDate : {
         type: Date,
         default : null
+    },
+    priority:{
+        type: Number,
+        default: 0,
+        index: true
     }
 },{timestamps:true})
 
