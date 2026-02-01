@@ -1,6 +1,8 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import {redis} from "../config/redis.js";
+import { v4 as uuidv4 } from 'uuid';
 import { body, validationResult } from "express-validator";
 import User from "../models/User.js";
 import sendEmail from "../utils/email.js";
@@ -136,7 +138,7 @@ router.post("/login", authUsernameLimiter,
             }
 
             const token = jwt.sign(
-                { userID: user._id, username: user.username },
+                { userID: user._id, username: user.username, jti: uuidv4()},
                 process.env.JWT_SECRET,
                 { expiresIn: "3d" }
             )
@@ -147,6 +149,23 @@ router.post("/login", authUsernameLimiter,
             res.status(500).json({ message: "Internal Server Error" })
         }
     })
+
+router.post("/logout", authMiddleware, async(req,res)=>{
+    try{
+        const authHeader = req.headers.authorization;
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const ttl = decoded.exp - Math.floor(Date.now() / 1000);
+
+        if(ttl > 0){
+            await redis.set(`bl:${decoded.jti}`,"1","EX",ttl);
+        }
+        res.status(200).json({ message: "Logged out successfully." });
+    }catch(error){
+        console.error(error)
+        res.status(500).json({ message: "Internal Server Error" })
+    }
+})
 
 router.post("/forgot-password", authEmailLimiter, async (req, res) => {
     try {
