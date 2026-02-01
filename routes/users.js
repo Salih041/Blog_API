@@ -125,11 +125,22 @@ router.put("/update/:id", authMiddleware, writeLimiter, upload.single('profilePi
             updates.socials = socialData;
         }
 
+        if(req.body.removeProfilePicture === "true")
+        {
+            if(currentUser.profilePicture){
+                const publicId = getPublicIdFromUrl(currentUser.profilePicture);
+                if (publicId) {
+                    await cloudinary.uploader.destroy(publicId);
+                }
+            }
+            updates.profilePicture = "";
+        }
+
         if (req.file) {
             if (currentUser.profilePicture) {
                 const publicId = getPublicIdFromUrl(currentUser.profilePicture);
                 if (publicId) {
-                    cloudinary.uploader.destroy(publicId);
+                    await cloudinary.uploader.destroy(publicId);
                 }
             }
             updates.profilePicture = req.file.path;
