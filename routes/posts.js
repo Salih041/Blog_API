@@ -48,8 +48,8 @@ router.get("/popular-tags", readLimiter, async (req, res) => {
             return res.status(200).json(popularTagsCache);
         }
 
-        console.log("data is coming from db")
         const popularTags = await Post.aggregate([
+            { $match: {statu : 'published'}},
             { $unwind: "$tags" },
             {
                 $group: {
